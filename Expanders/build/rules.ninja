@@ -1466,7 +1466,7 @@ rule CXX_STATIC_LIBRARY_LINKER____idf_cmd_system
 # Rule for re-running cmake.
 
 rule RERUN_CMAKE
-  command = C:\Users\Chris\.espressif\tools\cmake\3.16.4\bin\cmake.exe -SF:\Capstone\Expanders -BF:\Capstone\Expanders\build
+  command = C:\Users\Chris\.espressif\tools\cmake\3.16.4\bin\cmake.exe -SF:\Capstone\Heron\Expanders -BF:\Capstone\Heron\Expanders\build
   description = Re-running CMake...
   generator = 1
 

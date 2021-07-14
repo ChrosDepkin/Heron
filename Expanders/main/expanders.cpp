@@ -16,7 +16,7 @@ void MCP::regRead(uint8_t reg)
     /*First send register address*/
     i2c_cmd_handle_t cmd = i2c_cmd_link_create(); //Create a command link for the following messages
     i2c_master_start(cmd); //Start 
-    i2c_master_write_byte(cmd, (this->address << 1) | I2C_MASTER_READ, ACK_EN); //Send a read message to the device address, wait for ack
+    i2c_master_write_byte(cmd, (this->address << 1) | I2C_MASTER_WRITE, ACK_EN); //Send a read message to the device address, wait for ack
     i2c_master_write_byte(cmd, reg, ACK_EN); //Send the register address we want to read
 	i2c_master_stop(cmd); //End
     esp_err_t ret = i2c_master_cmd_begin(I2C_M_PORT, cmd, 1000/portTICK_PERIOD_MS); //This function sends the message composed above
@@ -26,23 +26,23 @@ void MCP::regRead(uint8_t reg)
     //Print result type
     if( ret == ESP_OK ) 
     {
-	   printf("\n \n \n Read1 OK \n \n \n");
+	   printf("\nRead1 OK");
     }
     if( ret == ESP_ERR_INVALID_ARG ) 
     {
-	   printf("\n \n \n Read1 Inv. Arg \n \n \n");
+	   printf("\nRead1 Inv. Arg");
     }
     if( ret == ESP_FAIL ) 
     {
-	   printf("\n \n \n Read1 Fail \n \n \n");
+	   printf("\nRead1 Fail");
     }
     if( ret == ESP_ERR_INVALID_STATE ) 
     {
-	   printf("\n \n \n Read1 Inv. State \n \n \n");
+	   printf("\nRead1 Inv. State");
     }
     if( ret == ESP_ERR_TIMEOUT ) 
     {
-	   printf("\n \n \n Read1 TO \n \n \n");
+	   printf("\nRead1 TO");
     }
 
     /*Then read the data from that register*/
@@ -65,23 +65,23 @@ void MCP::regRead(uint8_t reg)
 
     if( ret == ESP_OK ) 
     {
-	   printf("\n \n \n Read2 OK \n \n \n");
+	   printf("\nRead2 OK");
     }
     if( ret == ESP_ERR_INVALID_ARG ) 
     {
-	   printf("\n \n \n Read2 Inv. Arg \n \n \n");
+	   printf("\nRead2 Inv. Arg");
     }
     if( ret == ESP_FAIL ) 
     {
-	   printf("\n \n \n Read2 Fail \n \n \n");
+	   printf("\nRead2 Fail");
     }
     if( ret == ESP_ERR_INVALID_STATE ) 
     {
-	   printf("\n \n \n Read2 Inv. State \n \n \n");
+	   printf("\nRead2 Inv. State");
     }
     if( ret == ESP_ERR_TIMEOUT ) 
     {
-	   printf("\n \n \n Read2 TO \n \n \n");
+	   printf("\nRead2 TO");
     }
 }
 
@@ -100,23 +100,23 @@ void MCP::regWrite(uint8_t reg, uint8_t val)
     //Print returned error type
     if( ret == ESP_OK ) 
     {
-	   printf("\n \n \n W OK \n \n \n");
+	   printf("\nW OK");
     }
     if( ret == ESP_ERR_INVALID_ARG ) 
     {
-	   printf("\n \n \n W Inv. Arg \n \n \n");
+	   printf("\nW Inv. Arg");
     }
     if( ret == ESP_FAIL ) 
     {
-	   printf("\n \n \n W Fail \n \n \n");
+	   printf("\nW Fail");
     }
     if( ret == ESP_ERR_INVALID_STATE ) 
     {
-	   printf("\n \n \n W Inv. State \n \n \n");
+	   printf("\nW Inv. State");
     }
     if( ret == ESP_ERR_TIMEOUT ) 
     {
-	   printf("\n \n \n W TO \n \n \n");
+	   printf("\nW TO");
     }
 }
 
@@ -213,7 +213,7 @@ void MCPE::encoderRead()
     // Read register values first
     regRead(MCP_GPIOA);
     regRead(MCP_GPIOB);
-
+/* This section not yet done - commented out for testing
     // Update current values
     EV[0] = PAval & 0b00000001;
     EV[1] = PAval & 0b00000010;
@@ -252,5 +252,5 @@ void MCPE::encoderRead()
         EVP[i+1] = EV[i+1]
     }
     
-
+*/
 }

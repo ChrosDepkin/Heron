@@ -34,8 +34,8 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for each subdirectory.
-  include("F:/Capstone/Expanders/build/esp-idf/mbedtls/mbedtls/library/cmake_install.cmake")
-  include("F:/Capstone/Expanders/build/esp-idf/mbedtls/mbedtls/include/cmake_install.cmake")
+  include("F:/Capstone/Heron/Expanders/build/esp-idf/mbedtls/mbedtls/library/cmake_install.cmake")
+  include("F:/Capstone/Heron/Expanders/build/esp-idf/mbedtls/mbedtls/include/cmake_install.cmake")
 
 endif()
 

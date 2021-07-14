@@ -1,4 +1,4 @@
-# Install script for directory: F:/Capstone/Expanders/main
+# Install script for directory: F:/Capstone/Heron/Expanders/main
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)

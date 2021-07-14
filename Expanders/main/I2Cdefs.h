@@ -5,16 +5,16 @@
 #define NACK 1 //No acknowledge
 #define ACK_EN 1 //Acknowledge Enable
 #define NACK_EN i2c_ack_type_t::I2C_MASTER_ACK //No acknowledge Enable
-#define I2C_SPEED 1700000
+#define I2C_SPEED 100000
 
 //I2C Master
 #define I2C_M_PORT 0 //I2C Master Port Number
-#define I2C_M_SDA 16 //I2C Master SDA Pin
-#define I2C_M_SCL 17 //I2C Master SCL Pin
+#define I2C_M_SDA 21 //I2C Master SDA Pin
+#define I2C_M_SCL 22 //I2C Master SCL Pin
 //I2C Slave
 #define I2C_S_PORT 1 //I2C Slave Port Number
-#define I2C_S_SDA 18 //I2C Slave SDA Pin
-#define I2C_S_SCL 19 //I2C Slave SCL Pin
+#define I2C_S_SDA 33 //I2C Slave SDA Pin
+#define I2C_S_SCL 32 //I2C Slave SCL Pin
 #define I2C_S_ADR 0x10 //I2C Slave address
 
 //IO Expander - Base address of MCP23017 is 0x20 (with all address pins low)

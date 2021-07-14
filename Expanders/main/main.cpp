@@ -16,9 +16,22 @@ void I2C_Config();
 void app_main()
 {
     I2C_Config();   // Sets up I2C Master and Slave (only master used here)
-    MCP MCP_E(EXP_ADR_E, MCP_DEF_CONFIG, DIR_PA_E, DIR_PB_E, PU_PA_E, PU_PB_E);     // Expander and misc. expanders currently base class
-    MCP MCP_M(EXP_ADR_M, MCP_DEF_CONFIG, DIR_PA_M, DIR_PB_M, PU_PA_M, PU_PB_M);
-    MCPB MCP_B(EXP_ADR_B, MCP_DEF_CONFIG, DIR_PA_B, DIR_PB_B, PU_PA_B, PU_PB_B);    // Button expander is a child class
+    MCPE MCP_E(EXP_ADR_E, MCP_DEF_CONFIG, DIR_PA_E, DIR_PB_E, PU_PA_E, PU_PB_E);     // Create expander objects
+    MCP MCP_M(EXP_ADR_M, MCP_DEF_CONFIG, DIR_PA_M, DIR_PB_M, PU_PA_M, PU_PB_M);     // Misc. expander is from base class
+    MCPB MCP_B(EXP_ADR_B, MCP_DEF_CONFIG, DIR_PA_B, DIR_PB_B, PU_PA_B, PU_PB_B);
+    MCP_E.setup();  // Setup function for each expander
+    MCP_M.setup();
+    MCP_B.setup();
+    
+    while(1) // while loop for testing
+    {
+    MCP_B.matrixRead(); // Read the matrix
+        if(MCP_B.matrixState[38] == 1) // If button 15 is pressed
+            {MCP_M.regWrite(MCP_GPIOA, 0xFF);} // Set misc expander Port A high (connected an LED to one of the gate jacks)
+        if(MCP_B.matrixState[54] == 1) // If button 16 is pressed
+            {MCP_M.regWrite(MCP_GPIOA, 0x00);} // Set Port A low
+    }
+
 }
 
 
@@ -52,8 +65,8 @@ void I2C_Config()
     //Can also set a few other default values, most relevent probably lsb/msb first, and timeout
     //See: https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/i2c.html#i2c-api-customized-configuration
 
-    i2c_driver_install(I2C_M_PORT,I2C_MODE_MASTER, 0, 0, 0); //Finally install driver for Port 0 - would also include flags for interrupt here (set to 0 for this example)
+    i2c_driver_install(I2C_M_PORT,I2C_MODE_MASTER, 100, 100, 0); //Finally install driver for Port 0 - would also include flags for interrupt here (set to 0 for this example)
                     //Port, Mode, RX Buffer, TX Buffer, Flag
-    i2c_driver_install(I2C_S_PORT,I2C_MODE_SLAVE, 1, 1, 0); //And driver for Port 1 - As its slave it needs (or should have) buffers
-                                                //Just set buffers to 1 for example.
+    i2c_driver_install(I2C_S_PORT,I2C_MODE_SLAVE, 100, 100, 0); //And driver for Port 1 - As its slave it needs (or should have) buffers
+                                                //Just set buffers to 100 for example.
 }
