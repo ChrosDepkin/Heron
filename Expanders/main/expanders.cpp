@@ -248,8 +248,8 @@ void MCPE::encoderRead()
             }
         }
         // Store previous values for next round
-        EVP[i] = EV[i]
-        EVP[i+1] = EV[i+1]
+        EVP[i] = EV[i];
+        EVP[i+1] = EV[i+1];
     }
     
 */
