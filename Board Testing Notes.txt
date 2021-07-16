@@ -1,3 +1,4 @@
 Cut RST to 3.3V trace (Shouldn't be pulling it high all the time)
 Cut Pot2 to ESP trace (This trace is holding the esp in boot mode)
 U10 (LLC from ESP to IO expanders) is passing through SCL but not SDA on the bodged board. Works on the other board so I assume U10 is broken and will replace.
+Realised LED pin (D35) is an input only pin, temp bodge to pin 12 works, but can't boot when that pin is connected. Should look into what pin to replace it with.
