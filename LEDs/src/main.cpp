@@ -17,6 +17,7 @@ void loop() {
   for (int i = 0; i < 73; i++)
   {
     leds[i] = CRGB::Red;
+    //FastLED.setBrightness(50);
     FastLED.show();
     delay(30); 
   }
