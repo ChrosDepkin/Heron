@@ -960,3 +960,16 @@
 33	75	6479446668237112	bootloader/bootloader.elf	fa9c160cf0bc77e0
 33	75	6479446668237112	bootloader/bootloader.bin	fa9c160cf0bc77e0
 33	75	6479446668237112	bootloader/bootloader.map	fa9c160cf0bc77e0
+49	7265	6482092814070637	build.ninja	44a479369b4bd1cd
+38	109	6479446668237112	bootloader-prefix/src/bootloader-stamp/bootloader-build	fa9c160cf0bc77e0
+38	109	6479446668237112	bootloader/bootloader.elf	fa9c160cf0bc77e0
+38	109	6479446668237112	bootloader/bootloader.bin	fa9c160cf0bc77e0
+38	109	6479446668237112	bootloader/bootloader.map	fa9c160cf0bc77e0
+40	297	6482092817848797	esp-idf/app_update/CMakeFiles/__idf_app_update.dir/esp_app_desc.c.obj	432ca7b5d3cf0c92
+297	396	6482092818838882	esp-idf/app_update/libapp_update.a	d0bdf7a56a09036c
+396	746	6482092822334009	esp-idf/main/CMakeFiles/__idf_main.dir/main.cpp.obj	22cd9689f8959ee4
+443	770	6482092822484006	esp-idf/main/CMakeFiles/__idf_main.dir/expanders.cpp.obj	3fabb0214097a3ec
+770	818	6482092823034294	esp-idf/main/libmain.a	e1da3e3dab83ec79
+818	2858	6482092843276488	esp-idf/esp32/ld/esp32.project.ld	219cab28931a3f97
+2858	3859	6482092853371870	i2c-tools.elf	67bbfa484d933a80
+3860	4083	6482092855711580	.bin_timestamp	42717bb6f149cd95
