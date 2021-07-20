@@ -65,8 +65,8 @@ void I2C_Config()
     //Can also set a few other default values, most relevent probably lsb/msb first, and timeout
     //See: https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/i2c.html#i2c-api-customized-configuration
 
-    i2c_driver_install(I2C_M_PORT,I2C_MODE_MASTER, 100, 100, 0); //Finally install driver for Port 0 - would also include flags for interrupt here (set to 0 for this example)
-                    //Port, Mode, RX Buffer, TX Buffer, Flag
-    i2c_driver_install(I2C_S_PORT,I2C_MODE_SLAVE, 100, 100, 0); //And driver for Port 1 - As its slave it needs (or should have) buffers
-                                                //Just set buffers to 100 for example.
+    i2c_driver_install(I2C_M_PORT,I2C_MODE_MASTER, I2C_MASTER_TX_BUF, I2C_MASTER_RX_BUF, 0); //Finally install driver for Port 0 - would also include flags for interrupt here (set to 0 for this example)
+                    //Port, Mode, RX Buffer, TX Buffer, Flag - Buffer not needed (but good idea) for master mode
+    i2c_driver_install(I2C_S_PORT,I2C_MODE_SLAVE, I2C_SLAVE_TX_BUF, I2C_SLAVE_RX_BUF, 0); //And driver for Port 1 - As its slave it needs (or should have) buffers
+     
 }

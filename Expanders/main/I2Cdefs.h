@@ -11,11 +11,15 @@
 #define I2C_M_PORT 0 //I2C Master Port Number
 #define I2C_M_SDA 21 //I2C Master SDA Pin
 #define I2C_M_SCL 22 //I2C Master SCL Pin
+#define I2C_MASTER_TX_BUF 128 // Just setting buffers to 128 at random - not sure what to put
+#define I2C_MASTER_RX_BUF 128
 //I2C Slave
 #define I2C_S_PORT 1 //I2C Slave Port Number
 #define I2C_S_SDA 33 //I2C Slave SDA Pin
 #define I2C_S_SCL 32 //I2C Slave SCL Pin
 #define I2C_S_ADR 0x10 //I2C Slave address
+#define I2C_SLAVE_TX_BUF 128 // Just setting buffers to 128 at random - not sure what to put
+#define I2C_SLAVE_RX_BUF 128
 
 //IO Expander - Base address of MCP23017 is 0x20 (with all address pins low)
 #define EXP_ADR_E      0x20 //Encoder IO expander address
