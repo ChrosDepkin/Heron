@@ -1,4 +1,4 @@
-//Defines for all I2C operations
+//Defines for all I2C/IO Expander operations
 
 //I2C General
 #define ACK 0 //Acknowledge

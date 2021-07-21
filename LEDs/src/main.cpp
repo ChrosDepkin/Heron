@@ -1,3 +1,9 @@
+/*
+Code for testing that the LEDs are functioning on the prototype board.
+Seems to work, but message starts to degrade around LED 25-30.
+Won't go further with this code because it's just a quick test in Arduino.
+Will do further work in ESP-IDF and split up the LED chain if need be.
+*/
 #include <Arduino.h>
 
 #include <FastLED.h>

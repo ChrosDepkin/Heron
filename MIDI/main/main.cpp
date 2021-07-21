@@ -1,3 +1,9 @@
+/*
+    Code for configuring UART and sending MIDI messages.
+    Config function configures two UART ports, and a test message is sent on UART0.
+    Have only testing sending a message on UART0, and not receiving.
+    Works fine.
+*/
 extern "C" {                    // Need to put these includes in here to make it work
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"

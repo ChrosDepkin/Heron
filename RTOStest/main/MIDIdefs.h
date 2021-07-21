@@ -1,4 +1,4 @@
-// Defines for MIDI/UART operations
+// Defines for MIDI operations
 
 // UART Settings
 #define UART_0_BAUD 115200 // Just chucking these in as defaults

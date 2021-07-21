@@ -1,4 +1,11 @@
-
+/*
+This file uses the expanders.h/.cpp code to test the IO expanders.
+A config function for I2C is called first to set everything up, then
+IO expander objects are created, and their setup functions setup the
+actual IO expanders. A while loop continually checks a couple of buttons
+for testing.
+Button matrix is working, need to work on the encoders.
+*/
 extern "C" {                    // Need to put these includes in here to make it work
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"

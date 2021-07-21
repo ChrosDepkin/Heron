@@ -2,8 +2,8 @@
     Functions defined within expander class in Expanders.h
 */
 
-#include "expanders.h"
-#include "I2Cdefs.h"
+#include "expanders.h" // IO Expander classes are defined here
+#include "I2Cdefs.h" // Various useful defines here
 
 
 
@@ -23,7 +23,7 @@ void MCP::regRead(uint8_t reg)
                                                                                     //Keep the result so we can do some error checking below
     i2c_cmd_link_delete(cmd); //No longer using command link
 
-    //Print result type
+    //Print result type - just for debugging
     if( ret == ESP_OK ) 
     {
 	   printf("\nRead1 OK");
@@ -97,7 +97,7 @@ void MCP::regWrite(uint8_t reg, uint8_t val)
     esp_err_t ret = i2c_master_cmd_begin(I2C_M_PORT, cmd, 1000/portTICK_PERIOD_MS); //Send the message composed above
     i2c_cmd_link_delete(cmd); //Delete command link - not using it anymore
 
-    //Print returned error type
+    
     if( ret == ESP_OK ) 
     {
 	   printf("\nW OK");

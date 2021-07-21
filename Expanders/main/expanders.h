@@ -1,8 +1,6 @@
 /*
-    IO Expander Code for Heron
-    Chris Deakin 30/4/21
-    *************************
-
+    IO Expander classes are defined here
+    expanders.cpp contains code for the functions listed here
 */
 
 #include "driver/i2c.h"
