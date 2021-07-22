@@ -24,6 +24,7 @@ void MCP::regRead(uint8_t reg)
     i2c_cmd_link_delete(cmd); //No longer using command link
 
     //Print result type - just for debugging
+    /*
     if( ret == ESP_OK ) 
     {
 	   printf("\nRead1 OK");
@@ -44,7 +45,7 @@ void MCP::regRead(uint8_t reg)
     {
 	   printf("\nRead1 TO");
     }
-
+    */
     /*Then read the data from that register*/
     //All as above except for 'master_read_byte' function
     cmd = i2c_cmd_link_create();
@@ -62,7 +63,7 @@ void MCP::regRead(uint8_t reg)
 	i2c_master_stop(cmd);
     ret = i2c_master_cmd_begin(I2C_M_PORT, cmd, 1000/portTICK_PERIOD_MS); 
     i2c_cmd_link_delete(cmd);
-
+    /*
     if( ret == ESP_OK ) 
     {
 	   printf("\nRead2 OK");
@@ -83,6 +84,7 @@ void MCP::regRead(uint8_t reg)
     {
 	   printf("\nRead2 TO");
     }
+    */
 }
 
 //Function to write a value to an MCP23017 IO Expander Register
@@ -97,7 +99,7 @@ void MCP::regWrite(uint8_t reg, uint8_t val)
     esp_err_t ret = i2c_master_cmd_begin(I2C_M_PORT, cmd, 1000/portTICK_PERIOD_MS); //Send the message composed above
     i2c_cmd_link_delete(cmd); //Delete command link - not using it anymore
 
-    
+    /*
     if( ret == ESP_OK ) 
     {
 	   printf("\nW OK");
@@ -118,6 +120,7 @@ void MCP::regWrite(uint8_t reg, uint8_t val)
     {
 	   printf("\nW TO");
     }
+    */
 }
 
 // Function to configure an IO expander
@@ -213,7 +216,7 @@ void MCPE::encoderRead()
     // Read register values first
     regRead(MCP_GPIOA);
     regRead(MCP_GPIOB);
-/* This section not yet done - commented out for testing
+\
     // Update current values
     EV[0] = PAval & 0b00000001;
     EV[1] = PAval & 0b00000010;
@@ -233,7 +236,7 @@ void MCPE::encoderRead()
     EV[15] = PBval & 0b00000001;
     
     
-    for (int i = 0; i < 16; i+2)
+    for (int i = 0; i < 16; i = i + 2)
     {
         Turn[i/2] = 0; // Reset turn value first
         if(EV[i] != EVP[i]) // If + pin has changed
@@ -252,5 +255,5 @@ void MCPE::encoderRead()
         EVP[i+1] = EV[i+1];
     }
     
-*/
+
 }

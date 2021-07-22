@@ -17,6 +17,7 @@ void app_main(void);           // main needs to be in here too or it won't compi
 
 #include "expanders.h"         // Deals with IO Expanders
 #include "I2Cdefs.h"           // Just defines for various I2C stuff
+#include "esp_log.h"
 
 void I2C_Config();
 
@@ -29,14 +30,52 @@ void app_main()
     MCP_E.setup();  // Setup function for each expander
     MCP_M.setup();
     MCP_B.setup();
+
+    // Debug tag for each encoder (just a bit cleaner for the log)
+    static const char* TAG1 = "EN1";
+    static const char* TAG2 = "EN2";
+    static const char* TAG3 = "EN3";
+    static const char* TAG4 = "EN4";
+    static const char* TAG5 = "EN5";
+    static const char* TAG6 = "EN6";
+    static const char* TAG7 = "EN7";
+    static const char* TAG8 = "EN8";
     
     while(1) // while loop for testing
     {
-    MCP_B.matrixRead(); // Read the matrix
-        if(MCP_B.matrixState[38] == 1) // If button 15 is pressed
-            {MCP_M.regWrite(MCP_GPIOA, 0xFF);} // Set misc expander Port A high (connected an LED to one of the gate jacks)
-        if(MCP_B.matrixState[54] == 1) // If button 16 is pressed
-            {MCP_M.regWrite(MCP_GPIOA, 0x00);} // Set Port A low
+    MCP_E.encoderRead(); // Read the encoders
+        if(MCP_E.Turn[0] == 1) // If turn value is 1
+            {ESP_LOGI(TAG8, "Right");}  // Then encoder has turned right
+         if(MCP_E.Turn[0] == 2) // If turn value is 2
+            {ESP_LOGI(TAG8, "Left");}  // Then encoder has turned left
+        if(MCP_E.Turn[1] == 1)  // Etc.
+            {ESP_LOGI(TAG7, "Right");} 
+         if(MCP_E.Turn[1] == 2) 
+            {ESP_LOGI(TAG7, "Left");} 
+        if(MCP_E.Turn[2] == 1) 
+            {ESP_LOGI(TAG6, "Right");} 
+         if(MCP_E.Turn[2] == 2) 
+            {ESP_LOGI(TAG6, "Left");} 
+        if(MCP_E.Turn[3] == 1) 
+            {ESP_LOGI(TAG5, "Right");} 
+         if(MCP_E.Turn[3] == 2) 
+            {ESP_LOGI(TAG5, "Left");} 
+        if(MCP_E.Turn[4] == 1) 
+            {ESP_LOGI(TAG4, "Right");} 
+         if(MCP_E.Turn[4] == 2) 
+            {ESP_LOGI(TAG4, "Left");} 
+        if(MCP_E.Turn[5] == 1) 
+            {ESP_LOGI(TAG3, "Right");} 
+         if(MCP_E.Turn[5] == 2) 
+            {ESP_LOGI(TAG3, "Left");} 
+        if(MCP_E.Turn[6] == 1) 
+            {ESP_LOGI(TAG2, "Right");} 
+         if(MCP_E.Turn[6] == 2) 
+            {ESP_LOGI(TAG2, "Left");} 
+        if(MCP_E.Turn[7] == 1) 
+            {ESP_LOGI(TAG1, "Right");} 
+         if(MCP_E.Turn[7] == 2) 
+            {ESP_LOGI(TAG1, "Left");} 
     }
 
 }

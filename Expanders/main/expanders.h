@@ -36,7 +36,7 @@ class MCPB : public MCP // Inherits from MCP class
     public:
     using MCP::MCP;       // Need this to inherit the constructor from parent class
     void matrixRead();    // Function to read all values on the button matrix
-    bool matrixState[56]; // Has an array to store the current state of all keys in the matrix
+    bool matrixState[56]; // Put it here for testing, but maybe make a function to read the state?
 
 };
 
@@ -46,10 +46,11 @@ class MCPE : public MCP // Inherits from MCP class
     protected:
     bool EV[16];    // Each encoder has two pins that we read, 8 encoders total
     bool EVP[16];   // We also need to store the previous values for reading encoders
-    uint8_t Turn[8]; // Turn direction (if any) of encoder on last read
+    //uint8_t Turn[8]; // Turn direction (if any) of encoder on last read
 
     public:
     using MCP::MCP;       // Need this to inherit the constructor from parent class
     void encoderRead();
+    uint8_t Turn[8]; // Moved to public for testing
 
 };
