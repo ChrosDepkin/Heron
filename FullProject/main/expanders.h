@@ -53,5 +53,6 @@ class MCPE : public MCP // Inherits from MCP class
     using MCP::MCP;       // Need this to inherit the constructor from parent class
     void encoderRead();
     uint8_t Turn[8]; // Moved to public for testing
+    uint8_t bankstate; // Track the currently selected bank
 
 };

@@ -7,6 +7,8 @@ extern "C" {                    // Need to put these includes in here to make it
 #include "freertos/task.h"
 #include "esp_system.h"
 #include "esp_spi_flash.h"
+#include "driver/UART.h"
+#include "esp_log.h" // Just used for logging stuff
 
 void app_main(void);           // main needs to be in here too or it won't compile
 }
@@ -14,53 +16,68 @@ void app_main(void);           // main needs to be in here too or it won't compi
 #include "expanders.h"
 #include "I2Cdefs.h"
 #include "MIDIdefs.h"
-#include "driver/UART.h"
-#include "esp_log.h" // Just used for logging stuff
+#include "axoVar.h"
+
+
 
 // Prototypes
 void I2C_Config(void *pvParameter);
-void MCP_Tasks(void *pvParameter);
+void Encoder_Task(void *pvParameter);
+void Key_Task(void *pvParameter);
 void MIDI_Send(void *pvParameter);
 void UART_Config(void *pvParameter);
 
 // Queues for sending data between tasks
 QueueHandle_t Q1; // Using this to test sending data from reading encoders to sending to Axo
+QueueHandle_t Q2; // Using this to test sending data from button matrix to encoder task
+
+// Things that don't go anywhere yet
+MCP MCP_M(EXP_ADR_M, MCP_DEF_CONFIG, DIR_PA_M, DIR_PB_M, PU_PA_M, PU_PB_M);     // Misc. IO expander
 
 void app_main(void)
 {
     // Make a handle for each OS task
     TaskHandle_t I2Cconfig = NULL;
     TaskHandle_t UARTconfig = NULL;
-    TaskHandle_t MCP = NULL;
+    TaskHandle_t Enc = NULL;
+    TaskHandle_t Key = NULL;
     TaskHandle_t MIDI = NULL;
 
 
     Q1 = xQueueCreate(8, sizeof(uint8_t)); // Create a queue 8 items long (chose arbitrarily) each item 8 bits long
                                            // Using this to update the value sent by UART when an encoder is turned
-    
-    // Create each task for the OS
-    xTaskCreate(I2C_Config, "I2Cconfig", 2048, NULL, tskIDLE_PRIORITY, &I2Cconfig);
-    xTaskCreate(UART_Config, "UARTconfig", 2048, NULL, tskIDLE_PRIORITY, &UARTconfig);
-    xTaskCreate(MCP_Tasks, "MCPtask", 2048, NULL, tskIDLE_PRIORITY, &MCP);
-    xTaskCreate(MIDI_Send, "MIDIsend", 2048, NULL, tskIDLE_PRIORITY, &MIDI);
-    // Pass in Function - Name (just for debug)- Stack size - Parameters - Priority - Handle
-    // Haven't done anything with stack depth, paramters, or priority for now
-    // This function gives the task permission to run on both cores - can specify cores with xTaskCreatePinnedToCore()
+    Q2 = xQueueCreate(8, sizeof(uint8_t));
 
+    axoVar vars[32];
+
+    for (int i = 0; i < 32; i++)
+    {
+        if(i<=7){vars[i].bank = 0;}
+        else if(i<=15){vars[i].bank = 1;}
+        else if(i<=23){vars[i].bank = 2;}
+        else if(i<=31){vars[i].bank = 3;}
+    }
+    
+
+    // Create each task for the OS
+    xTaskCreate(I2C_Config, "I2Cconfig", 2048, NULL, 5, &I2Cconfig);
+    xTaskCreate(UART_Config, "UARTconfig", 2048, NULL, 4, &UARTconfig);
+    xTaskCreate(Encoder_Task, "EncTask", 2048, NULL, 3, &Enc);
+    xTaskCreate(Key_Task, "KeyTask", 2048, NULL, 3, &Key);
+    xTaskCreate(MIDI_Send, "MIDIsend", 2048, NULL, 1, &MIDI);
+    // Pass in Function - Name (just for debug)- Stack size - Parameters - Priority - Handle
+    // Haven't done anything with stack depth or parameters for now
+    // This function gives the task permission to run on both cores - can specify cores with xTaskCreatePinnedToCore()
     
 }
 
 
-// Function for all tasks dealing with IO expanders
-void MCP_Tasks(void *pvParameter)
+// Function for encoder task
+void Encoder_Task(void *pvParameter)
 {
-    MCPE MCP_E(EXP_ADR_E, MCP_DEF_CONFIG, DIR_PA_E, DIR_PB_E, PU_PA_E, PU_PB_E);     // Create expander objects
-    MCP MCP_M(EXP_ADR_M, MCP_DEF_CONFIG, DIR_PA_M, DIR_PB_M, PU_PA_M, PU_PB_M);     // Misc. expander is from base class
-    MCPB MCP_B(EXP_ADR_B, MCP_DEF_CONFIG, DIR_PA_B, DIR_PB_B, PU_PA_B, PU_PB_B);
+    MCPE MCP_E(EXP_ADR_E, MCP_DEF_CONFIG, DIR_PA_E, DIR_PB_E, PU_PA_E, PU_PB_E); // Create encoder expander object
 
-    MCP_E.setup(); // Setup function for each expander
-    MCP_M.setup();
-    MCP_B.setup();
+    MCP_E.setup(); // Setup function for that expander
 
     // Encoder debug tags
     static const char* TAG1 = "EN1";
@@ -72,22 +89,44 @@ void MCP_Tasks(void *pvParameter)
     static const char* TAG7 = "EN7";
     static const char* TAG8 = "EN8";
 
-    // Key debug tags (don't need all keys)
-    static const char* K1 = "K1";
-    static const char* K2 = "K2";
-    static const char* K3 = "K3";
-    static const char* K4 = "K4";
-    static const char* K5 = "K5";
-    static const char* K6 = "K6";
-    static const char* K7 = "K7";
-    static const char* K8 = "K8";
+    
 
     for(;;) // Run this task continuously
     {
-        MCP_B.matrixRead(); // Read the button matrix
         MCP_E.encoderRead(); // Read encoder values
+        xQueueReceive(Q2,(void *) &MCP_E.bankstate,10); // Read changes to bank value
         xQueueSend(Q1,(void *) &MCP_E.Turn[7],10); // Send turn value of encoder 1 to queue, max wait 10 ticks
 
+        if(MCP_E.bankstate == 0)
+        {
+         if(MCP_E.Turn[0] == 1) // If turn value is 1
+            {ESP_LOGI(TAG8, "B1 - Right");}  // Then encoder has turned right
+         if(MCP_E.Turn[0] == 2) // If turn value is 2
+            {ESP_LOGI(TAG8, "B1 - Left");}  // Then encoder has turned left
+        }
+        if(MCP_E.bankstate == 1)
+        {
+         if(MCP_E.Turn[0] == 1) // If turn value is 1
+            {ESP_LOGI(TAG8, "B2 - Right");}  // Then encoder has turned right
+         if(MCP_E.Turn[0] == 2) // If turn value is 2
+            {ESP_LOGI(TAG8, "B2 - Left");}  // Then encoder has turned left
+        }
+        if(MCP_E.bankstate == 2)
+        {
+         if(MCP_E.Turn[0] == 1) // If turn value is 1
+            {ESP_LOGI(TAG8, "B3 - Right");}  // Then encoder has turned right
+         if(MCP_E.Turn[0] == 2) // If turn value is 2
+            {ESP_LOGI(TAG8, "B3 - Left");}  // Then encoder has turned left
+        }
+        if(MCP_E.bankstate == 3)
+        {
+         if(MCP_E.Turn[0] == 1) // If turn value is 1
+            {ESP_LOGI(TAG8, "B4 - Right");}  // Then encoder has turned right
+         if(MCP_E.Turn[0] == 2) // If turn value is 2
+            {ESP_LOGI(TAG8, "B4 - Left");}  // Then encoder has turned left
+        }
+
+        /*
         // Encoder loggings
         if(MCP_E.Turn[0] == 1) // If turn value is 1
             {ESP_LOGI(TAG8, "Right");}  // Then encoder has turned right
@@ -121,8 +160,51 @@ void MCP_Tasks(void *pvParameter)
             {ESP_LOGI(TAG1, "Right");} 
          if(MCP_E.Turn[7] == 2) 
             {ESP_LOGI(TAG1, "Left");} 
+        */
+    }
+}
 
 
+// Function for button matrix task
+void Key_Task(void *pvParameter)
+{
+    MCPB MCP_B(EXP_ADR_B, MCP_DEF_CONFIG, DIR_PA_B, DIR_PB_B, PU_PA_B, PU_PB_B); // Create matrix expander object
+
+    MCP_B.setup(); // Setup function for matrix expander
+    uint8_t bankB = 0; // buffer for sending bank changes to encoder task
+    uint8_t mode = 0; // Used for tracking key 'mode'. Currently just for bank mode
+
+    // Key debug tags (don't need all keys)
+    static const char* K1 = "K1";
+    static const char* K2 = "K2";
+    static const char* K3 = "K3";
+    static const char* K4 = "K4";
+    static const char* K5 = "K5";
+    static const char* K6 = "K6";
+    static const char* K7 = "K7";
+    static const char* K8 = "K8";
+
+    while(1)
+    {
+        MCP_B.matrixRead(); // Read the button matrix
+
+        if(MCP_B.matrixState[54]){mode = 1;} // B16
+        if(MCP_B.matrixState[38]){mode = 0;} // B15
+
+        if(mode == 1)
+        {
+        if(MCP_B.matrixState[0] == 1)
+            {ESP_LOGI(K1, "Bank 1"); bankB = 0;} 
+        if(MCP_B.matrixState[8] == 1)
+            {ESP_LOGI(K2, "Bank 2"); bankB = 1;} 
+        if(MCP_B.matrixState[16] == 1)
+            {ESP_LOGI(K3, "Bank 3"); bankB = 2;} 
+        if(MCP_B.matrixState[24] == 1)
+            {ESP_LOGI(K4, "Bank 4"); bankB = 3;} 
+        xQueueSend(Q2,(void *) &bankB,10);
+        }
+
+        /*
         // Key Logging (only checking first 8 keys)
         if(MCP_B.matrixState[0] == 1)
             {ESP_LOGI(K1, "Key 1");} 
@@ -140,9 +222,12 @@ void MCP_Tasks(void *pvParameter)
             {ESP_LOGI(K7, "Key 7");} 
         if(MCP_B.matrixState[1] == 1)
             {ESP_LOGI(K8, "Key 8");} 
+        */
+
+
+        xQueueSend(Q2,(void *) &bankB,10);
     }
 }
-
 
 // Function for sending MIDI data to Axoloti via UART0
 void MIDI_Send(void *pvParameter)
