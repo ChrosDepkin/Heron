@@ -5,7 +5,7 @@
 #define NACK 1 //No acknowledge
 #define ACK_EN 1 //Acknowledge Enable
 #define NACK_EN i2c_ack_type_t::I2C_MASTER_ACK //No acknowledge Enable
-#define I2C_SPEED 100000
+#define I2C_SPEED 400000
 
 //I2C Master
 #define I2C_M_PORT 0 //I2C Master Port Number

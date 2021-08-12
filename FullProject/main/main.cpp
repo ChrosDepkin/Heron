@@ -26,10 +26,14 @@ void Encoder_Task(void *pvParameter);
 void Key_Task(void *pvParameter);
 void MIDI_Send(void *pvParameter);
 void UART_Config(void *pvParameter);
+void varControl(void *pvParameter);
 
 // Queues for sending data between tasks
 QueueHandle_t Q1; // Using this to test sending data from reading encoders to sending to Axo
-QueueHandle_t Q2; // Using this to test sending data from button matrix to encoder task
+QueueHandle_t Q2; // Using this to pass new values to axoVars - will presumably come from different sources as it controls both values and CC channels
+
+// Global Variables
+uint8_t bank = 0; // Currently selected bank
 
 // Things that don't go anywhere yet
 MCP MCP_M(EXP_ADR_M, MCP_DEF_CONFIG, DIR_PA_M, DIR_PB_M, PU_PA_M, PU_PB_M);     // Misc. IO expander
@@ -42,21 +46,13 @@ void app_main(void)
     TaskHandle_t Enc = NULL;
     TaskHandle_t Key = NULL;
     TaskHandle_t MIDI = NULL;
+    TaskHandle_t varCtrl = NULL;
 
 
     Q1 = xQueueCreate(8, sizeof(uint8_t)); // Create a queue 8 items long (chose arbitrarily) each item 8 bits long
                                            // Using this to update the value sent by UART when an encoder is turned
-    Q2 = xQueueCreate(8, sizeof(uint8_t));
+    Q2 = xQueueCreate(8, sizeof(uint16_t));
 
-    axoVar vars[32];
-
-    for (int i = 0; i < 32; i++)
-    {
-        if(i<=7){vars[i].bank = 0;}
-        else if(i<=15){vars[i].bank = 1;}
-        else if(i<=23){vars[i].bank = 2;}
-        else if(i<=31){vars[i].bank = 3;}
-    }
     
 
     // Create each task for the OS
@@ -65,6 +61,7 @@ void app_main(void)
     xTaskCreate(Encoder_Task, "EncTask", 2048, NULL, 3, &Enc);
     xTaskCreate(Key_Task, "KeyTask", 2048, NULL, 3, &Key);
     xTaskCreate(MIDI_Send, "MIDIsend", 2048, NULL, 1, &MIDI);
+    xTaskCreate(varControl, "VarControl", 2048, NULL, 6, &varCtrl);
     // Pass in Function - Name (just for debug)- Stack size - Parameters - Priority - Handle
     // Haven't done anything with stack depth or parameters for now
     // This function gives the task permission to run on both cores - can specify cores with xTaskCreatePinnedToCore()
@@ -79,88 +76,35 @@ void Encoder_Task(void *pvParameter)
 
     MCP_E.setup(); // Setup function for that expander
 
+    uint16_t Q2buff; // Buffer for queue 2
+
     // Encoder debug tags
-    static const char* TAG1 = "EN1";
-    static const char* TAG2 = "EN2";
-    static const char* TAG3 = "EN3";
-    static const char* TAG4 = "EN4";
-    static const char* TAG5 = "EN5";
-    static const char* TAG6 = "EN6";
-    static const char* TAG7 = "EN7";
-    static const char* TAG8 = "EN8";
+    static const char* EnTsk = "EnTsk";
+
 
     
 
     for(;;) // Run this task continuously
     {
         MCP_E.encoderRead(); // Read encoder values
-        xQueueReceive(Q2,(void *) &MCP_E.bankstate,10); // Read changes to bank value
-        xQueueSend(Q1,(void *) &MCP_E.Turn[7],10); // Send turn value of encoder 1 to queue, max wait 10 ticks
 
-        if(MCP_E.bankstate == 0)
+        for (int i = 0; i < 8; i++)
         {
-         if(MCP_E.Turn[0] == 1) // If turn value is 1
-            {ESP_LOGI(TAG8, "B1 - Right");}  // Then encoder has turned right
-         if(MCP_E.Turn[0] == 2) // If turn value is 2
-            {ESP_LOGI(TAG8, "B1 - Left");}  // Then encoder has turned left
-        }
-        if(MCP_E.bankstate == 1)
-        {
-         if(MCP_E.Turn[0] == 1) // If turn value is 1
-            {ESP_LOGI(TAG8, "B2 - Right");}  // Then encoder has turned right
-         if(MCP_E.Turn[0] == 2) // If turn value is 2
-            {ESP_LOGI(TAG8, "B2 - Left");}  // Then encoder has turned left
-        }
-        if(MCP_E.bankstate == 2)
-        {
-         if(MCP_E.Turn[0] == 1) // If turn value is 1
-            {ESP_LOGI(TAG8, "B3 - Right");}  // Then encoder has turned right
-         if(MCP_E.Turn[0] == 2) // If turn value is 2
-            {ESP_LOGI(TAG8, "B3 - Left");}  // Then encoder has turned left
-        }
-        if(MCP_E.bankstate == 3)
-        {
-         if(MCP_E.Turn[0] == 1) // If turn value is 1
-            {ESP_LOGI(TAG8, "B4 - Right");}  // Then encoder has turned right
-         if(MCP_E.Turn[0] == 2) // If turn value is 2
-            {ESP_LOGI(TAG8, "B4 - Left");}  // Then encoder has turned left
+            if(MCP_E.Turn[i] == 1)
+                {
+                    ESP_LOGI(EnTsk, "Encoder %i Right", i);
+                    Q2buff = (1 << 15) | (i << 9) | (0b01 << 7) | 1;
+                    xQueueSend(Q2,&Q2buff,10);
+                }
+            else if(MCP_E.Turn[i] == 2)
+                {
+                    ESP_LOGI(EnTsk, "Encoder %i Left", i);
+                    Q2buff = (1 << 15) | (i << 9) | (0b01 << 7) | 2;
+                    xQueueSend(Q2,&Q2buff,10);
+                }
         }
 
-        /*
-        // Encoder loggings
-        if(MCP_E.Turn[0] == 1) // If turn value is 1
-            {ESP_LOGI(TAG8, "Right");}  // Then encoder has turned right
-         if(MCP_E.Turn[0] == 2) // If turn value is 2
-            {ESP_LOGI(TAG8, "Left");}  // Then encoder has turned left
-        if(MCP_E.Turn[1] == 1)  // Etc.
-            {ESP_LOGI(TAG7, "Right");} 
-         if(MCP_E.Turn[1] == 2) 
-            {ESP_LOGI(TAG7, "Left");} 
-        if(MCP_E.Turn[2] == 1) 
-            {ESP_LOGI(TAG6, "Right");} 
-         if(MCP_E.Turn[2] == 2) 
-            {ESP_LOGI(TAG6, "Left");} 
-        if(MCP_E.Turn[3] == 1) 
-            {ESP_LOGI(TAG5, "Right");} 
-         if(MCP_E.Turn[3] == 2) 
-            {ESP_LOGI(TAG5, "Left");} 
-        if(MCP_E.Turn[4] == 1) 
-            {ESP_LOGI(TAG4, "Right");} 
-         if(MCP_E.Turn[4] == 2) 
-            {ESP_LOGI(TAG4, "Left");} 
-        if(MCP_E.Turn[5] == 1) 
-            {ESP_LOGI(TAG3, "Right");} 
-         if(MCP_E.Turn[5] == 2) 
-            {ESP_LOGI(TAG3, "Left");} 
-        if(MCP_E.Turn[6] == 1) 
-            {ESP_LOGI(TAG2, "Right");} 
-         if(MCP_E.Turn[6] == 2) 
-            {ESP_LOGI(TAG2, "Left");} 
-        if(MCP_E.Turn[7] == 1) 
-            {ESP_LOGI(TAG1, "Right");} 
-         if(MCP_E.Turn[7] == 2) 
-            {ESP_LOGI(TAG1, "Left");} 
-        */
+       
     }
 }
 
@@ -171,7 +115,6 @@ void Key_Task(void *pvParameter)
     MCPB MCP_B(EXP_ADR_B, MCP_DEF_CONFIG, DIR_PA_B, DIR_PB_B, PU_PA_B, PU_PB_B); // Create matrix expander object
 
     MCP_B.setup(); // Setup function for matrix expander
-    uint8_t bankB = 0; // buffer for sending bank changes to encoder task
     uint8_t mode = 0; // Used for tracking key 'mode'. Currently just for bank mode
 
     // Key debug tags (don't need all keys)
@@ -194,38 +137,17 @@ void Key_Task(void *pvParameter)
         if(mode == 1)
         {
         if(MCP_B.matrixState[0] == 1)
-            {ESP_LOGI(K1, "Bank 1"); bankB = 0;} 
+            {ESP_LOGI(K1, "Bank 1"); bank = 0;} 
         if(MCP_B.matrixState[8] == 1)
-            {ESP_LOGI(K2, "Bank 2"); bankB = 1;} 
+            {ESP_LOGI(K2, "Bank 2"); bank = 1;} 
         if(MCP_B.matrixState[16] == 1)
-            {ESP_LOGI(K3, "Bank 3"); bankB = 2;} 
+            {ESP_LOGI(K3, "Bank 3"); bank = 2;} 
         if(MCP_B.matrixState[24] == 1)
-            {ESP_LOGI(K4, "Bank 4"); bankB = 3;} 
-        xQueueSend(Q2,(void *) &bankB,10);
+            {ESP_LOGI(K4, "Bank 4"); bank = 3;} 
+
         }
 
-        /*
-        // Key Logging (only checking first 8 keys)
-        if(MCP_B.matrixState[0] == 1)
-            {ESP_LOGI(K1, "Key 1");} 
-        if(MCP_B.matrixState[8] == 1)
-            {ESP_LOGI(K2, "Key 2");} 
-        if(MCP_B.matrixState[16] == 1)
-            {ESP_LOGI(K3, "Key 3");} 
-        if(MCP_B.matrixState[24] == 1)
-            {ESP_LOGI(K4, "Key 4");} 
-        if(MCP_B.matrixState[32] == 1)
-            {ESP_LOGI(K5, "Key 5");} 
-        if(MCP_B.matrixState[40] == 1)
-            {ESP_LOGI(K6, "Key 6");} 
-        if(MCP_B.matrixState[48] == 1)
-            {ESP_LOGI(K7, "Key 7");} 
-        if(MCP_B.matrixState[1] == 1)
-            {ESP_LOGI(K8, "Key 8");} 
-        */
 
-
-        xQueueSend(Q2,(void *) &bankB,10);
     }
 }
 
@@ -248,7 +170,77 @@ void MIDI_Send(void *pvParameter)
 }
 
 
+void varControl(void *pvParameter)
+{
+    uint16_t buff = 0;
+    axoVar banks[4][8]; // 2D array - 4 banks of 8 encoders
 
+    axoVar prev[4][8]; // Used to track last loop's values for debugging
+
+    // Variables for deconstructing queue messages
+    uint16_t enc = 0;
+    uint16_t com = 0;
+    uint16_t vlu = 0;
+
+
+    // Received message structure:
+    // x/xxx/xxx/xx/xxxxxxx
+    // Check/Unused/Enc/Com/Value
+    // Commands - 00, write raw value
+    //          - 01, inc/decrement value (0/1 -/+)
+    //          - 10, change CC value
+    //          - 11, unused
+    // Top bit is set on any message (as an all 0 message would otherwise be valid)
+    for(;;)
+    {
+        xQueueReceive(Q2,(void *) &buff,10); // Get the data from queue
+
+        enc = (buff & ENCMASK) >> 9;
+        com = (buff & COMMASK) >> 7;
+        vlu = buff & VALMASK;
+
+    if(buff & CHKMASK) // Check we have a message
+    {
+        if(com == 0b00)
+        {
+            banks[bank][enc].val = val;
+        }
+        if(com == 0b01)
+        {
+            if(vlu == 1){banks[bank][enc].incVal(1);}
+            else if(vlu == 2){banks[bank][enc].incVal(0);}
+
+            // Debug
+            if(banks[bank][enc].val != prev[bank][enc]){ESP_LOGI(B, "Bank %i, Enc %i: %i", bank, enc, banks[bank][enc].val);}
+            prev[bank][enc] = banks[bank][enc].val;
+        }
+        if(com == 0b10)
+        {
+            banks[bank][enc].CC = vlu;
+        }
+        if(com == 0b11)
+        {}
+
+        buff = 0; // Clear the buffer or it'll keep repeating the same command              
+    }
+    }
+
+}
+
+
+
+
+
+
+
+
+
+
+/* 
+    Config Functions
+    Run once at startup, might shift them into another file.
+
+*/
 
 
 // Function for configuring I2C controllers
