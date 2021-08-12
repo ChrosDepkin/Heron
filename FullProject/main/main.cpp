@@ -176,6 +176,7 @@ void varControl(void *pvParameter)
     axoVar banks[4][8]; // 2D array - 4 banks of 8 encoders
 
     axoVar prev[4][8]; // Used to track last loop's values for debugging
+    static const char* B = "Bank";
 
     // Variables for deconstructing queue messages
     uint16_t enc = 0;
@@ -203,7 +204,7 @@ void varControl(void *pvParameter)
     {
         if(com == 0b00)
         {
-            banks[bank][enc].val = val;
+            banks[bank][enc].val = vlu;
         }
         if(com == 0b01)
         {
@@ -211,8 +212,8 @@ void varControl(void *pvParameter)
             else if(vlu == 2){banks[bank][enc].incVal(0);}
 
             // Debug
-            if(banks[bank][enc].val != prev[bank][enc]){ESP_LOGI(B, "Bank %i, Enc %i: %i", bank, enc, banks[bank][enc].val);}
-            prev[bank][enc] = banks[bank][enc].val;
+            if(banks[bank][enc].val != prev[bank][enc].val){ESP_LOGI(B, "Bank %i, Enc %i: %i", bank, enc, banks[bank][enc].val);}
+            prev[bank][enc].val = banks[bank][enc].val;
         }
         if(com == 0b10)
         {
