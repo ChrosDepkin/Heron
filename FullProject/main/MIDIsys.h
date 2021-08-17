@@ -1,4 +1,8 @@
-// Defines for MIDI operations
+#ifndef MIDISYS_H
+#define MIDISYS_H
+
+#include <stdint.h> // Needed to include this here for uint8_t types for no reason one day
+#include "driver/UART.h"
 
 // UART Settings
 #define UART_0_BAUD 115200 // Just chucking these in as defaults
@@ -20,3 +24,15 @@
 #define PITCHBEND 0xE0
 #define CHNLMODE 0xB0
 #define SYSEXCL 0xF0
+
+
+
+
+
+
+
+void MIDI_send(uint8_t type, uint8_t channel, uint8_t val1, uint8_t val2);
+
+
+
+#endif

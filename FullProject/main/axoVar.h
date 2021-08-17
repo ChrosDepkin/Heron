@@ -1,3 +1,6 @@
+#ifndef AXOVAR_H
+#define AXOVAR_H
+
 #include <stdint.h> // Needed to include this here for uint8_t types for no reason one day
 
 #define CHKMASK 0b1000000000000000
@@ -15,3 +18,6 @@ class axoVar
     void incVal(bool direction);
 
 };
+
+
+#endif

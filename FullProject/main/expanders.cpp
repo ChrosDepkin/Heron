@@ -257,3 +257,42 @@ void MCPE::encoderRead()
     
 
 }
+
+
+// Function for configuring I2C controllers
+void I2C_Config()
+{
+    //Below I create two configs for a master and a slave I2C
+    i2c_config_t i2cM; //Config structure for first I2C
+        i2cM.mode = I2C_MODE_MASTER; //Set to master
+        i2cM.sda_io_num = I2C_M_SDA; //SDA pin 
+        i2cM.scl_io_num = I2C_M_SCL; //SCL pin 
+        i2cM.sda_pullup_en = GPIO_PULLUP_ENABLE; //Enable internal pullup on SDA pin
+        i2cM.scl_pullup_en = GPIO_PULLUP_ENABLE; //Enable internal pullup on SCL pin
+        i2cM.master.clk_speed = I2C_SPEED; //Clock speed on SCL
+        //Don't set address mode or set slave address in master mode
+
+    i2c_param_config(I2C_M_PORT,&i2cM); //Configure I2C Port 0 with the above config - Port 0 will be our master
+
+    i2c_config_t i2cS; //Config structure for second I2C
+        i2cS.mode = I2C_MODE_SLAVE; //Set to slave
+        i2cS.sda_io_num = I2C_S_SDA; //SDA pin 
+        i2cS.scl_io_num = I2C_S_SCL; //SCL pin 
+        i2cS.sda_pullup_en = GPIO_PULLUP_ENABLE; //Enable internal pullup on SDA pin
+        i2cS.scl_pullup_en = GPIO_PULLUP_ENABLE; //Enable internal pullup on SCL pin
+        i2cS.slave.addr_10bit_en = 0; //Do we want 10 bit address mode?
+        i2cS.slave.slave_addr = I2C_S_ADR; //Set our slave address
+        //Don't set clock speed as slave
+
+    i2c_param_config(I2C_S_PORT,&i2cS); //Configure I2C Port 1 with the above config - Port 1 will be our slave
+
+    //Can also set a few other default values, most relevent probably lsb/msb first, and timeout
+    //See: https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/i2c.html#i2c-api-customized-configuration
+
+    i2c_driver_install(I2C_M_PORT,I2C_MODE_MASTER, I2C_MASTER_TX_BUF, I2C_MASTER_RX_BUF, 0); //Finally install driver for Port 0 - would also include flags for interrupt here (set to 0 for this example)
+                    //Port, Mode, RX Buffer, TX Buffer, Flag - Buffer not needed (but good idea) for master mode
+    i2c_driver_install(I2C_S_PORT,I2C_MODE_SLAVE, I2C_SLAVE_TX_BUF, I2C_SLAVE_RX_BUF, 0); //And driver for Port 1 - As its slave it needs (or should have) buffers
+
+    vTaskDelete(NULL); // We don't want this to keep going, so delete the task once config is done
+     
+}

@@ -7,7 +7,6 @@ extern "C" {                    // Need to put these includes in here to make it
 #include "freertos/task.h"
 #include "esp_system.h"
 #include "esp_spi_flash.h"
-#include "driver/UART.h"
 #include "esp_log.h" // Just used for logging stuff
 
 void app_main(void);           // main needs to be in here too or it won't compile
@@ -15,7 +14,7 @@ void app_main(void);           // main needs to be in here too or it won't compi
 
 #include "expanders.h"
 #include "I2Cdefs.h"
-#include "MIDIdefs.h"
+#include "MIDIsys.h"
 #include "axoVar.h"
 
 
@@ -34,6 +33,7 @@ QueueHandle_t Q2; // Using this to pass new values to axoVars - will presumably 
 
 // Global Variables
 uint8_t bank = 0; // Currently selected bank
+uint8_t channel = 1; // Current MIDI channel (hardcoded to 1 for now)
 
 // Things that don't go anywhere yet
 MCP MCP_M(EXP_ADR_M, MCP_DEF_CONFIG, DIR_PA_M, DIR_PB_M, PU_PA_M, PU_PB_M);     // Misc. IO expander
@@ -45,7 +45,6 @@ void app_main(void)
     TaskHandle_t UARTconfig = NULL;
     TaskHandle_t Enc = NULL;
     TaskHandle_t Key = NULL;
-    TaskHandle_t MIDI = NULL;
     TaskHandle_t varCtrl = NULL;
 
 
@@ -60,7 +59,6 @@ void app_main(void)
     xTaskCreate(UART_Config, "UARTconfig", 2048, NULL, 4, &UARTconfig);
     xTaskCreate(Encoder_Task, "EncTask", 2048, NULL, 3, &Enc);
     xTaskCreate(Key_Task, "KeyTask", 2048, NULL, 3, &Key);
-    xTaskCreate(MIDI_Send, "MIDIsend", 2048, NULL, 1, &MIDI);
     xTaskCreate(varControl, "VarControl", 2048, NULL, 6, &varCtrl);
     // Pass in Function - Name (just for debug)- Stack size - Parameters - Priority - Handle
     // Haven't done anything with stack depth or parameters for now
@@ -151,23 +149,6 @@ void Key_Task(void *pvParameter)
     }
 }
 
-// Function for sending MIDI data to Axoloti via UART0
-void MIDI_Send(void *pvParameter)
-{
-    char data[3] = {(CTRLCHANGE | 1), 20, 0}; // Store a full MIDI message here (Status byte - data byte - data byte). Status byte should be message type OR'd with MIDI channel
-                                       // Note that not all MIDI messages are 3 bytes long
-                                       // Also note that this is scaled for axoloti patches (eg send a value of 60 and the dial in the patch will go to 30 for a positive dial, or -4 for a bipolar)
-    uint8_t buff = 0; // Buffer to store data from queue (not much of a buffer, just trying it out)
-    for(;;) // Tasks should never be allowed to return, so stick them in an endless loop or delete at the end
-    {
-        xQueueReceive(Q1,(void *) &buff,10); // Get the data from queue
-        if(buff == 1) // If 1 - turned right
-        {data[2]++; uart_write_bytes(UART_NUM_0, data, 3);} // Increase value and send
-        if(buff == 2) // If 2 - turned left
-        {data[2]--; uart_write_bytes(UART_NUM_0, data, 3);} // Decrease value and send
-        //vTaskDelay(100); // Wait 1 ticks before sending again (seems to be about 1 second)
-    }
-}
 
 
 void varControl(void *pvParameter)
@@ -177,6 +158,9 @@ void varControl(void *pvParameter)
 
     axoVar prev[4][8]; // Used to track last loop's values for debugging
     static const char* B = "Bank";
+
+
+    char data[3] = {100, 55, 12};
 
     // Variables for deconstructing queue messages
     uint16_t enc = 0;
@@ -205,11 +189,15 @@ void varControl(void *pvParameter)
         if(com == 0b00)
         {
             banks[bank][enc].val = vlu;
+            MIDI_send(CTRLCHANGE, channel, banks[bank][enc].CC, banks[bank][enc].val);
+
         }
         if(com == 0b01)
         {
             if(vlu == 1){banks[bank][enc].incVal(1);}
             else if(vlu == 2){banks[bank][enc].incVal(0);}
+            //MIDI_send(CTRLCHANGE, channel, banks[bank][enc].CC, banks[bank][enc].val);
+            MIDI_send(CTRLCHANGE, channel, 10, banks[bank][enc].val); // Hardcoding to CC 10 for now
 
             // Debug
             if(banks[bank][enc].val != prev[bank][enc].val){ESP_LOGI(B, "Bank %i, Enc %i: %i", bank, enc, banks[bank][enc].val);}

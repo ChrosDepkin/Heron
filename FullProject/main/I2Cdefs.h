@@ -1,3 +1,6 @@
+#ifndef I2CD_H
+#define I2CD_H
+
 //Defines for all I2C/IO Expander operations
 
 //I2C General
@@ -85,3 +88,6 @@
 #define COL4 0b00010000
 #define COL5 0b00100000
 #define COL6 0b01000000
+
+
+#endif

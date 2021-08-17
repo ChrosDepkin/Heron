@@ -1,3 +1,5 @@
+#ifndef EXPANDERS_H
+#define EXPANDERS_H
 /*
     IO Expander classes are defined here
     expanders.cpp contains code for the functions listed here
@@ -55,3 +57,6 @@ class MCPE : public MCP // Inherits from MCP class
     uint8_t Turn[8]; // Moved to public for testing
 
 };
+
+
+#endif
