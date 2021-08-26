@@ -5,6 +5,7 @@
 extern "C" {                    // Need to put these includes in here to make it work
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/portmacro.h"
 #include "esp_system.h"
 #include "esp_spi_flash.h"
 #include "esp_log.h" // Just used for logging stuff
@@ -16,7 +17,7 @@ void app_main(void);           // main needs to be in here too or it won't compi
 #include "I2Cdefs.h"
 #include "MIDIsys.h"
 #include "axoVar.h"
-
+#include "LED.h"
 
 
 // Prototypes
@@ -26,6 +27,7 @@ void Key_Task(void *pvParameter);
 void MIDI_Send(void *pvParameter);
 void UART_Config(void *pvParameter);
 void varControl(void *pvParameter);
+void LED(void *pvParameter);
 
 // Queues for sending data between tasks
 QueueHandle_t Q1; // Using this to test sending data from reading encoders to sending to Axo
@@ -38,6 +40,14 @@ uint8_t channel = 1; // Current MIDI channel (hardcoded to 1 for now)
 // Things that don't go anywhere yet
 MCP MCP_M(EXP_ADR_M, MCP_DEF_CONFIG, DIR_PA_M, DIR_PB_M, PU_PA_M, PU_PB_M);     // Misc. IO expander
 
+
+
+
+static portMUX_TYPE my_mutex;
+
+
+
+
 void app_main(void)
 {
     // Make a handle for each OS task
@@ -46,6 +56,8 @@ void app_main(void)
     TaskHandle_t Enc = NULL;
     TaskHandle_t Key = NULL;
     TaskHandle_t varCtrl = NULL;
+
+    TaskHandle_t leds = NULL;
 
 
     Q1 = xQueueCreate(8, sizeof(uint8_t)); // Create a queue 8 items long (chose arbitrarily) each item 8 bits long
@@ -63,9 +75,40 @@ void app_main(void)
     // Pass in Function - Name (just for debug)- Stack size - Parameters - Priority - Handle
     // Haven't done anything with stack depth or parameters for now
     // This function gives the task permission to run on both cores - can specify cores with xTaskCreatePinnedToCore()
+
+    xTaskCreate(LED, "LEDtask", 2048, NULL, 20, &leds);
     
 }
 
+void LED(void *pvParameter)
+{
+    vPortCPUInitializeMutex(&my_mutex);
+
+    CRGB leds[NUM_LEDS];
+    TickType_t xDelay = 100 / portTICK_PERIOD_MS;
+    LEDsetup(leds);
+    FastLED.setBrightness(50);
+
+    for(;;)
+    {
+
+    for (int i = 0; i < 73; i++)
+    {
+    if(i == 0)
+    {leds[72] = CRGB::Black;}
+    if(i > 0)
+    {leds[i-1] = CRGB::Black;}
+    leds[i] = CRGB::Green;
+    
+    //portENTER_CRITICAL(&my_mutex);
+    FastLED.show();
+    //portEXIT_CRITICAL(&my_mutex);
+    vTaskDelay(xDelay);
+    
+  }  
+  }
+
+}
 
 // Function for encoder task
 void Encoder_Task(void *pvParameter)
@@ -159,9 +202,6 @@ void varControl(void *pvParameter)
     axoVar prev[4][8]; // Used to track last loop's values for debugging
     static const char* B = "Bank";
 
-
-    char data[3] = {100, 55, 12};
-
     // Variables for deconstructing queue messages
     uint16_t enc = 0;
     uint16_t com = 0;
@@ -184,34 +224,34 @@ void varControl(void *pvParameter)
         com = (buff & COMMASK) >> 7;
         vlu = buff & VALMASK;
 
-    if(buff & CHKMASK) // Check we have a message
-    {
-        if(com == 0b00)
+        if(buff & CHKMASK) // Check we have a message
         {
-            banks[bank][enc].val = vlu;
-            MIDI_send(CTRLCHANGE, channel, banks[bank][enc].CC, banks[bank][enc].val);
+            if(com == 0b00)
+            {
+                banks[bank][enc].val = vlu;
+                MIDI_send(CTRLCHANGE, channel, banks[bank][enc].CC, banks[bank][enc].val);
 
-        }
-        if(com == 0b01)
-        {
-            if(vlu == 1){banks[bank][enc].incVal(1);}
-            else if(vlu == 2){banks[bank][enc].incVal(0);}
-            //MIDI_send(CTRLCHANGE, channel, banks[bank][enc].CC, banks[bank][enc].val);
-            MIDI_send(CTRLCHANGE, channel, 10, banks[bank][enc].val); // Hardcoding to CC 10 for now
+            }
+            if(com == 0b01)
+            {
+                if(vlu == 1){banks[bank][enc].incVal(1);}
+                else if(vlu == 2){banks[bank][enc].incVal(0);}
+                //MIDI_send(CTRLCHANGE, channel, banks[bank][enc].CC, banks[bank][enc].val);
+                MIDI_send(CTRLCHANGE, channel, 10, banks[bank][enc].val); // Hardcoding to CC 10 for now
 
-            // Debug
-            if(banks[bank][enc].val != prev[bank][enc].val){ESP_LOGI(B, "Bank %i, Enc %i: %i", bank, enc, banks[bank][enc].val);}
-            prev[bank][enc].val = banks[bank][enc].val;
-        }
-        if(com == 0b10)
-        {
-            banks[bank][enc].CC = vlu;
-        }
-        if(com == 0b11)
-        {}
+                // Debug
+                if(banks[bank][enc].val != prev[bank][enc].val){ESP_LOGI(B, "Bank %i, Enc %i: %i", bank, enc, banks[bank][enc].val);}
+                prev[bank][enc].val = banks[bank][enc].val;
+            }
+            if(com == 0b10)
+            {
+                banks[bank][enc].CC = vlu;
+            }
+            if(com == 0b11)
+            {}
 
-        buff = 0; // Clear the buffer or it'll keep repeating the same command              
-    }
+            buff = 0; // Clear the buffer or it'll keep repeating the same command              
+        }
     }
 
 }
