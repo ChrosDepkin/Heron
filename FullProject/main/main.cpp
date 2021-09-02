@@ -18,6 +18,7 @@ void app_main(void);           // main needs to be in here too or it won't compi
 #include "MIDIsys.h"
 #include "axoVar.h"
 #include "LED.h"
+#include "BPM.h"
 
 
 // Prototypes
@@ -28,6 +29,8 @@ void MIDI_Send(void *pvParameter);
 void UART_Config(void *pvParameter);
 void varControl(void *pvParameter);
 void LED(void *pvParameter);
+void Timer(void *pvParameter);
+static void BPMcallback(void* arg);
 
 // Queues for sending data between tasks
 QueueHandle_t Q1; // Using this to test sending data from reading encoders to sending to Axo
@@ -36,16 +39,13 @@ QueueHandle_t Q2; // Using this to pass new values to axoVars - will presumably 
 // Global Variables
 uint8_t bank = 0; // Currently selected bank
 uint8_t channel = 1; // Current MIDI channel (hardcoded to 1 for now)
+uint8_t BPM = 60; // Current BPM
+uint8_t mode = 0; // Used for tracking interface modes (Currently default, bank, or BPM)
+TaskHandle_t leds = NULL; // LED task needs to be global as it suspends itself and other tasks resume it.
+                          // There's probably a better solution but at least this works
 
 // Things that don't go anywhere yet
 MCP MCP_M(EXP_ADR_M, MCP_DEF_CONFIG, DIR_PA_M, DIR_PB_M, PU_PA_M, PU_PB_M);     // Misc. IO expander
-
-
-
-
-static portMUX_TYPE my_mutex;
-
-
 
 
 void app_main(void)
@@ -56,8 +56,7 @@ void app_main(void)
     TaskHandle_t Enc = NULL;
     TaskHandle_t Key = NULL;
     TaskHandle_t varCtrl = NULL;
-
-    TaskHandle_t leds = NULL;
+    TaskHandle_t Timers = NULL;
 
 
     Q1 = xQueueCreate(8, sizeof(uint8_t)); // Create a queue 8 items long (chose arbitrarily) each item 8 bits long
@@ -72,40 +71,84 @@ void app_main(void)
     xTaskCreate(Encoder_Task, "EncTask", 2048, NULL, 3, &Enc);
     xTaskCreate(Key_Task, "KeyTask", 2048, NULL, 3, &Key);
     xTaskCreate(varControl, "VarControl", 2048, NULL, 6, &varCtrl);
+    xTaskCreate(LED, "LEDtask", 2048, NULL, 3, &leds);
+    xTaskCreate(Timer, "TimerTask", 2048, NULL, 2, &Timers); // Timer itself is called as an interrupt, so timer task doesn't need a high priority
     // Pass in Function - Name (just for debug)- Stack size - Parameters - Priority - Handle
     // Haven't done anything with stack depth or parameters for now
     // This function gives the task permission to run on both cores - can specify cores with xTaskCreatePinnedToCore()
 
-    xTaskCreate(LED, "LEDtask", 2048, NULL, 20, &leds);
     
+    
+}
+
+// Callback - this is an interrupt that gets called whenever the BPM timer ticks
+static void BPMcallback(void* arg)
+{
+    BPMclass* BPMC = (BPMclass*)arg; // This callback is given the address of the BPM object.
+                                     // Just need to put it into a usable form
+    // Debug stuff below:
+    //const char* TAG = "Callback";
+    //int64_t time_since_boot = esp_timer_get_time();
+    //ESP_LOGI(TAG, "Periodic timer called, time since boot: %lld us", time_since_boot);
+
+    if(BPMC->BPMp != BPM) // If the BPM has been changed
+        {
+            BPMC->BPMchanged = 1; // Reset the flag
+        }
+    xTaskResumeFromISR(leds); // Current test is incrementing LEDs based on BPM, so resume here each tick.
+}
+
+void Timer(void *pvParameter)
+{
+    BPMclass BPMc;
+    
+    BPMc.BPMargs.callback = &BPMcallback; // Function called each time timer fires
+            BPMc.BPMargs.arg = &BPMc;
+            /* name is optional, but may help identify the timer when debugging */
+            BPMc.BPMargs.name = "BPM";
+
+    esp_timer_create(&BPMc.BPMargs, &BPMc.BPMtimer); // Create the timer with the given handle and arguments
+    esp_timer_start_periodic(BPMc.BPMtimer, (60000000/BPM)); // 60000000 over BPM gives us BPM in us
+    
+
+    for(;;)
+    {
+    /*********Task Loop***********/
+        if(BPMc.BPMchanged) // If BPM has changed
+        {
+            esp_timer_stop(BPMc.BPMtimer); // Need to stop timer before we can change period
+            esp_timer_start_periodic(BPMc.BPMtimer, (60000000/BPM)); // Set new period based on new BPM
+            BPMc.BPMchanged = 0;
+        }
+    /*********Task Loop***********/
+    }
+
 }
 
 void LED(void *pvParameter)
 {
-    vPortCPUInitializeMutex(&my_mutex);
-
     CRGB leds[NUM_LEDS];
-    TickType_t xDelay = 100 / portTICK_PERIOD_MS;
     LEDsetup(leds);
     FastLED.setBrightness(50);
 
     for(;;)
     {
+    /*********Task Loop***********/
+        for (int i = 0; i < NUM_LEDS; i++)
+        {
+            if(i == 0)
+                {leds[NUM_LEDS-1] = CRGB::Black;}
+            else if(i > 0)
+                {leds[i-1] = CRGB::Black;}
+            
+            leds[i] = CRGB::Green;
 
-    for (int i = 0; i < 73; i++)
-    {
-    if(i == 0)
-    {leds[72] = CRGB::Black;}
-    if(i > 0)
-    {leds[i-1] = CRGB::Black;}
-    leds[i] = CRGB::Green;
-    
-    //portENTER_CRITICAL(&my_mutex);
-    FastLED.show();
-    //portEXIT_CRITICAL(&my_mutex);
-    vTaskDelay(xDelay);
-    
-  }  
+            
+            FastLED.show(); // Update LEDs with whatever we've done above
+            vTaskSuspend(NULL); // Then suspend the task (other tasks will resume it as needed)
+        
+        }  
+    /*********Task Loop***********/
   }
 
 }
@@ -122,30 +165,52 @@ void Encoder_Task(void *pvParameter)
     // Encoder debug tags
     static const char* EnTsk = "EnTsk";
 
+    uint8_t BPMp = BPM; // Local BPM variable
+
 
     
 
     for(;;) // Run this task continuously
     {
+    /*********Task Loop***********/
         MCP_E.encoderRead(); // Read encoder values
 
-        for (int i = 0; i < 8; i++)
+        if(mode != 2) // Mode 2 is BPM mode
         {
-            if(MCP_E.Turn[i] == 1)
-                {
-                    ESP_LOGI(EnTsk, "Encoder %i Right", i);
-                    Q2buff = (1 << 15) | (i << 9) | (0b01 << 7) | 1;
-                    xQueueSend(Q2,&Q2buff,10);
-                }
-            else if(MCP_E.Turn[i] == 2)
-                {
-                    ESP_LOGI(EnTsk, "Encoder %i Left", i);
-                    Q2buff = (1 << 15) | (i << 9) | (0b01 << 7) | 2;
-                    xQueueSend(Q2,&Q2buff,10);
-                }
+            for (int i = 0; i < 8; i++)
+            {
+                if(MCP_E.Turn[i] == 1)
+                    {
+                        ESP_LOGI(EnTsk, "Encoder %i Right", i);
+                        Q2buff = (1 << 15) | (i << 9) | (0b01 << 7) | 1;
+                        xQueueSend(Q2,&Q2buff,10);
+                    }
+                else if(MCP_E.Turn[i] == 2)
+                    {
+                        ESP_LOGI(EnTsk, "Encoder %i Left", i);
+                        Q2buff = (1 << 15) | (i << 9) | (0b01 << 7) | 2;
+                        xQueueSend(Q2,&Q2buff,10);
+                    }
+            }
         }
 
-       
+        else if (mode == 2)
+        {
+            if(MCP_E.Turn[0] == 1)
+                {
+                    if(BPMp < 255)BPMp++;
+                    ESP_LOGI(EnTsk, "Encoder 8 Right, New BPM: %i", BPM);
+                }
+            else if(MCP_E.Turn[0] == 2)
+                {
+                    if(BPMp > 1){BPMp--;}
+                    ESP_LOGI(EnTsk, "Encoder 8 Left, New BPM: %i", BPM);
+                }
+            else   
+                BPM = BPMp;
+        }
+
+    /*********Task Loop***********/
     }
 }
 
@@ -156,24 +221,23 @@ void Key_Task(void *pvParameter)
     MCPB MCP_B(EXP_ADR_B, MCP_DEF_CONFIG, DIR_PA_B, DIR_PB_B, PU_PA_B, PU_PB_B); // Create matrix expander object
 
     MCP_B.setup(); // Setup function for matrix expander
-    uint8_t mode = 0; // Used for tracking key 'mode'. Currently just for bank mode
+    
 
     // Key debug tags (don't need all keys)
     static const char* K1 = "K1";
     static const char* K2 = "K2";
     static const char* K3 = "K3";
     static const char* K4 = "K4";
-    static const char* K5 = "K5";
-    static const char* K6 = "K6";
-    static const char* K7 = "K7";
-    static const char* K8 = "K8";
+
 
     while(1)
     {
+    /*********Task Loop***********/
         MCP_B.matrixRead(); // Read the button matrix
 
-        if(MCP_B.matrixState[54]){mode = 1;} // B16
-        if(MCP_B.matrixState[38]){mode = 0;} // B15
+        if(MCP_B.matrixState[52]){mode = 2;} // B3 - BPM mode
+        else if(MCP_B.matrixState[54]){mode = 1;} // B16 - Bank Mode
+        else if(MCP_B.matrixState[38]){mode = 0;} // B15 - Default Mode (nothing atm)
 
         if(mode == 1)
         {
@@ -188,7 +252,7 @@ void Key_Task(void *pvParameter)
 
         }
 
-
+    /*********Task Loop***********/
     }
 }
 
@@ -218,6 +282,7 @@ void varControl(void *pvParameter)
     // Top bit is set on any message (as an all 0 message would otherwise be valid)
     for(;;)
     {
+    /*********Task Loop***********/
         xQueueReceive(Q2,(void *) &buff,10); // Get the data from queue
 
         enc = (buff & ENCMASK) >> 9;
@@ -252,6 +317,7 @@ void varControl(void *pvParameter)
 
             buff = 0; // Clear the buffer or it'll keep repeating the same command              
         }
+    /*********Task Loop***********/
     }
 
 }
