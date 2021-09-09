@@ -8,6 +8,16 @@
     "idf.pythonBinPathWin": "C:\\Users\\Chris\\.espressif\\python_env\\idf4.2_py3.9_env\\Scripts\\python.exe",
     "files.associations": {
         "complex": "cpp",
-        "typeinfo": "cpp"
+        "typeinfo": "cpp",
+        "array": "cpp",
+        "chrono": "cpp",
+        "functional": "cpp",
+        "istream": "cpp",
+        "ostream": "cpp",
+        "ratio": "cpp",
+        "tuple": "cpp",
+        "type_traits": "cpp",
+        "utility": "cpp",
+        "string_view": "cpp"
     }
 }

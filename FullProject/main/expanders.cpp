@@ -216,7 +216,7 @@ void MCPE::encoderRead()
     // Read register values first
     regRead(MCP_GPIOA);
     regRead(MCP_GPIOB);
-\
+
     // Update current values
     EV[0] = PAval & 0b00000001;
     EV[1] = PAval & 0b00000010;

@@ -6,11 +6,10 @@
 #define NUM_LEDS 16
 #define DATA_PIN 13
 #define BRIGHTNESS  50
-#define LED_TYPE    WS2812C // No 2812C defined - could add it myself if this doesn't work
-#define COLOR_ORDER RGB
+#define LED_TYPE WS2812C
+//#define LED_TYPE    WS2811
+#define COLOR_ORDER GRB
 
-void LEDsetup(CRGB leds[NUM_LEDS]);
-//void LEDtest(CRGB leds[NUM_LEDS], TickType_t xDelay);
 
 
 

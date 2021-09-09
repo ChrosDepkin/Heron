@@ -19,33 +19,48 @@ void app_main(void);           // main needs to be in here too or it won't compi
 #include "axoVar.h"
 #include "LED.h"
 #include "BPM.h"
+#include "Sequencer.h"
 
 
 // Prototypes
 void I2C_Config(void *pvParameter);
 void Encoder_Task(void *pvParameter);
 void Key_Task(void *pvParameter);
-void MIDI_Send(void *pvParameter);
+void MIDI_Task(void *pvParameter);
 void UART_Config(void *pvParameter);
 void varControl(void *pvParameter);
 void LED(void *pvParameter);
 void Timer(void *pvParameter);
 static void BPMcallback(void* arg);
+void Sequencer_Task(void *pvParameter);
 
 // Queues for sending data between tasks
-QueueHandle_t Q1; // Using this to test sending data from reading encoders to sending to Axo
+QueueHandle_t Q1; // Using this to send sequencer data from key task to variable control
 QueueHandle_t Q2; // Using this to pass new values to axoVars - will presumably come from different sources as it controls both values and CC channels
+QueueHandle_t Q3; // MIDI queue
 
 // Global Variables
 uint8_t bank = 0; // Currently selected bank
 uint8_t channel = 1; // Current MIDI channel (hardcoded to 1 for now)
 uint8_t BPM = 60; // Current BPM
+bool BPMflag = 0;
 uint8_t mode = 0; // Used for tracking interface modes (Currently default, bank, or BPM)
-TaskHandle_t leds = NULL; // LED task needs to be global as it suspends itself and other tasks resume it.
+TaskHandle_t LEDs = NULL; // LED task needs to be global as it suspends itself and other tasks resume it.
                           // There's probably a better solution but at least this works
+TaskHandle_t MIDI = NULL;
 
 // Things that don't go anywhere yet
 MCP MCP_M(EXP_ADR_M, MCP_DEF_CONFIG, DIR_PA_M, DIR_PB_M, PU_PA_M, PU_PB_M);     // Misc. IO expander
+
+
+
+
+struct CRGB leds[NUM_LEDS];
+struct CRGB seq1[NUM_LEDS];
+struct CRGB seq2[NUM_LEDS];
+struct CRGB seq3[NUM_LEDS];
+struct CRGB seq4[NUM_LEDS];
+struct CRGB misc[NUM_LEDS];
 
 
 void app_main(void)
@@ -59,20 +74,21 @@ void app_main(void)
     TaskHandle_t Timers = NULL;
 
 
-    Q1 = xQueueCreate(8, sizeof(uint8_t)); // Create a queue 8 items long (chose arbitrarily) each item 8 bits long
-                                           // Using this to update the value sent by UART when an encoder is turned
+    Q1 = xQueueCreate(8, sizeof(uint16_t)); // Create a queue 8 items long (chose arbitrarily) each item 16 bits long
     Q2 = xQueueCreate(8, sizeof(uint16_t));
+    Q3 = xQueueCreate(8, sizeof(uint32_t));
 
     
 
     // Create each task for the OS
-    xTaskCreate(I2C_Config, "I2Cconfig", 2048, NULL, 5, &I2Cconfig);
-    xTaskCreate(UART_Config, "UARTconfig", 2048, NULL, 4, &UARTconfig);
-    xTaskCreate(Encoder_Task, "EncTask", 2048, NULL, 3, &Enc);
-    xTaskCreate(Key_Task, "KeyTask", 2048, NULL, 3, &Key);
-    xTaskCreate(varControl, "VarControl", 2048, NULL, 6, &varCtrl);
-    xTaskCreate(LED, "LEDtask", 2048, NULL, 3, &leds);
-    xTaskCreate(Timer, "TimerTask", 2048, NULL, 2, &Timers); // Timer itself is called as an interrupt, so timer task doesn't need a high priority
+    xTaskCreatePinnedToCore(I2C_Config, "I2Cconfig", 2048, NULL, 5, &I2Cconfig, 0);
+    xTaskCreatePinnedToCore(UART_Config, "UARTconfig", 2048, NULL, 4, &UARTconfig, 0);
+    xTaskCreatePinnedToCore(Encoder_Task, "EncTask", 2048, NULL, 3, &Enc, 1);
+    xTaskCreatePinnedToCore(Key_Task, "KeyTask", 2048, NULL, 3, &Key, 1);
+    xTaskCreatePinnedToCore(varControl, "VarControl", 4096, NULL, 4, &varCtrl, 0);
+    xTaskCreatePinnedToCore(LED, "LEDtask", 2048, NULL, 3, &LEDs, 0);
+    xTaskCreatePinnedToCore(Timer, "TimerTask", 2048, NULL, 3, &Timers, 1); // Timer itself is called as an interrupt, so timer task doesn't need a high priority
+    xTaskCreate(MIDI_Task, "LEDtask", 2048, NULL, 6, &MIDI);
     // Pass in Function - Name (just for debug)- Stack size - Parameters - Priority - Handle
     // Haven't done anything with stack depth or parameters for now
     // This function gives the task permission to run on both cores - can specify cores with xTaskCreatePinnedToCore()
@@ -95,7 +111,8 @@ static void BPMcallback(void* arg)
         {
             BPMC->BPMchanged = 1; // Reset the flag
         }
-    xTaskResumeFromISR(leds); // Current test is incrementing LEDs based on BPM, so resume here each tick.
+    BPMflag = !BPMflag;
+    
 }
 
 void Timer(void *pvParameter)
@@ -120,36 +137,87 @@ void Timer(void *pvParameter)
             esp_timer_start_periodic(BPMc.BPMtimer, (60000000/BPM)); // Set new period based on new BPM
             BPMc.BPMchanged = 0;
         }
+    taskYIELD();
     /*********Task Loop***********/
     }
 
 }
 
+void MIDI_Task(void *pvParameter)
+{
+ uint32_t Q3buff = 0; // Buffer for queue 3
+ uint8_t status =0;
+ uint8_t d1 =0;
+ uint8_t d2 =0;
+
+ for (;;)
+ {
+     xQueueReceive(Q3,(void *) &Q3buff,10);
+     
+     status = Q3buff & 0xFF;
+     d1 = (Q3buff & 0xFF00) >> 8;
+     d2 = (Q3buff & 0xFF0000) >> 16;
+     MIDI_send(status, channel, d1, d2);
+     vTaskSuspend(NULL);
+ }
+ 
+
+}
+
+
+
+
+
 void LED(void *pvParameter)
 {
-    CRGB leds[NUM_LEDS];
-    LEDsetup(leds);
+    CLEDController* controller = &FastLED.addLeds<LED_TYPE, DATA_PIN, COLOR_ORDER>(leds, NUM_LEDS);
     FastLED.setBrightness(50);
+
 
     for(;;)
     {
     /*********Task Loop***********/
-        for (int i = 0; i < NUM_LEDS; i++)
+    switch (mode)
+    {
+    case 0:
+        /* code */
+        break;
+    case 1:
+        /* code */
+        break;
+    case 2:
+        /* code */
+        break;
+    case 3:
+        switch (bank)
         {
-            if(i == 0)
-                {leds[NUM_LEDS-1] = CRGB::Black;}
-            else if(i > 0)
-                {leds[i-1] = CRGB::Black;}
-            
-            leds[i] = CRGB::Green;
-
-            
-            FastLED.show(); // Update LEDs with whatever we've done above
-            vTaskSuspend(NULL); // Then suspend the task (other tasks will resume it as needed)
+        case 0:
+            controller->show(seq1, NUM_LEDS, FastLED.getBrightness()); // Update LEDs
+            break;
+        case 1:
+            controller->show(seq2, NUM_LEDS, FastLED.getBrightness()); // Update LEDs
+            break;
+        case 2:
+            controller->show(seq3, NUM_LEDS, FastLED.getBrightness()); // Update LEDs
+            break;
+        case 3:
+            controller->show(seq4, NUM_LEDS, FastLED.getBrightness()); // Update LEDs
+            break;
         
-        }  
+        default:
+            break;
+        }
+        break;
+    
+    default:
+        break;
+    }
+    
+    vTaskSuspend(NULL);
+        
+
     /*********Task Loop***********/
-  }
+    }
 
 }
 
@@ -174,6 +242,7 @@ void Encoder_Task(void *pvParameter)
     {
     /*********Task Loop***********/
         MCP_E.encoderRead(); // Read encoder values
+        taskYIELD();
 
         if(mode != 2) // Mode 2 is BPM mode
         {
@@ -182,13 +251,13 @@ void Encoder_Task(void *pvParameter)
                 if(MCP_E.Turn[i] == 1)
                     {
                         ESP_LOGI(EnTsk, "Encoder %i Right", i);
-                        Q2buff = (1 << 15) | (i << 9) | (0b01 << 7) | 1;
+                        Q2buff = INCCOM | (i << 9) | 1; // Increment command, encoder 'i', value 1 (inc)
                         xQueueSend(Q2,&Q2buff,10);
                     }
                 else if(MCP_E.Turn[i] == 2)
                     {
                         ESP_LOGI(EnTsk, "Encoder %i Left", i);
-                        Q2buff = (1 << 15) | (i << 9) | (0b01 << 7) | 2;
+                        Q2buff = INCCOM | (i << 9) | 2; // Increment command, encoder 'i', value 2 (dec)
                         xQueueSend(Q2,&Q2buff,10);
                     }
             }
@@ -209,7 +278,8 @@ void Encoder_Task(void *pvParameter)
             else   
                 BPM = BPMp;
         }
-
+    
+    taskYIELD();
     /*********Task Loop***********/
     }
 }
@@ -221,6 +291,8 @@ void Key_Task(void *pvParameter)
     MCPB MCP_B(EXP_ADR_B, MCP_DEF_CONFIG, DIR_PA_B, DIR_PB_B, PU_PA_B, PU_PB_B); // Create matrix expander object
 
     MCP_B.setup(); // Setup function for matrix expander
+
+    uint16_t Q1buff; // Buffer for queue 1
     
 
     // Key debug tags (don't need all keys)
@@ -234,24 +306,53 @@ void Key_Task(void *pvParameter)
     {
     /*********Task Loop***********/
         MCP_B.matrixRead(); // Read the button matrix
-
-        if(MCP_B.matrixState[52]){mode = 2;} // B3 - BPM mode
-        else if(MCP_B.matrixState[54]){mode = 1;} // B16 - Bank Mode
-        else if(MCP_B.matrixState[38]){mode = 0;} // B15 - Default Mode (nothing atm)
+        taskYIELD();
+             if(MCP_B.matrixState[BUT4] == 1){mode = 3;} // Sequencer Mode
+        else if(MCP_B.matrixState[BUT3] == 1){mode = 2;} // BPM mode
+        else if(MCP_B.matrixState[BUT16] == 1){mode = 1;} // Bank Mode
+        else if(MCP_B.matrixState[BUT15] == 1){mode = 0;} // Default Mode (nothing atm)
 
         if(mode == 1)
         {
-        if(MCP_B.matrixState[0] == 1)
-            {ESP_LOGI(K1, "Bank 1"); bank = 0;} 
-        if(MCP_B.matrixState[8] == 1)
-            {ESP_LOGI(K2, "Bank 2"); bank = 1;} 
-        if(MCP_B.matrixState[16] == 1)
-            {ESP_LOGI(K3, "Bank 3"); bank = 2;} 
-        if(MCP_B.matrixState[24] == 1)
-            {ESP_LOGI(K4, "Bank 4"); bank = 3;} 
+            if(MCP_B.matrixState[KEY1] == 1)
+                {ESP_LOGI(K1, "Bank 1"); bank = 0;} 
+            else if(MCP_B.matrixState[KEY2] == 1)
+                {ESP_LOGI(K2, "Bank 2"); bank = 1;} 
+            else if(MCP_B.matrixState[KEY3] == 1)
+                {ESP_LOGI(K3, "Bank 3"); bank = 2;} 
+            else if(MCP_B.matrixState[KEY4] == 1)
+                {ESP_LOGI(K4, "Bank 4"); bank = 3;} 
+        }
+        
+        else if(mode == 2)
+        {/* Nothing for keys to do in BPM mode yet */}
 
+        else if(mode == 3)
+        {
+            Q1buff = 0;
+            int j = 0;
+            for (int i = 0; i < 49; i = i+8)
+            {
+                Q1buff = Q1buff | (MCP_B.matrixState[i] << j);
+                j++;
+            }
+            for (int i = 1; i < 50; i = i+8)
+            {
+                Q1buff = Q1buff | (MCP_B.matrixState[i] << j);
+                j++;
+            }
+            for (int i = 2; i < 11; i = i+8)
+            {
+                Q1buff = Q1buff | (MCP_B.matrixState[i] << j);
+                j++;
+            }
+            j = 0;
+
+            xQueueSend(Q1,&Q1buff,10); // Send which keys were pressed
+            
         }
 
+    taskYIELD();
     /*********Task Loop***********/
     }
 }
@@ -260,8 +361,19 @@ void Key_Task(void *pvParameter)
 
 void varControl(void *pvParameter)
 {
-    uint16_t buff = 0;
+    bool BPMflagLocal = 0;
+    uint16_t Q1buff = 0;
+    uint16_t Q2buff = 0;
+    uint32_t Q3buff = 0;
+
     axoVar banks[4][8]; // 2D array - 4 banks of 8 encoders
+    track tracks[4][2]; // 4 banks of 2 tracks
+
+    tracks[0][1].bank = 0;
+    tracks[0][1].topBot = 1;
+    tracks[0][1].type = NOTE_ON;
+    tracks[0][1].d1 = 69; // Middle A note
+    tracks[0][1].d2 = 64; // Velocity 64
 
     axoVar prev[4][8]; // Used to track last loop's values for debugging
     static const char* B = "Bank";
@@ -272,7 +384,7 @@ void varControl(void *pvParameter)
     uint16_t vlu = 0;
 
 
-    // Received message structure:
+    // Encoder received message structure:
     // x/xxx/xxx/xx/xxxxxxx
     // Check/Unused/Enc/Com/Value
     // Commands - 00, write raw value
@@ -283,49 +395,80 @@ void varControl(void *pvParameter)
     for(;;)
     {
     /*********Task Loop***********/
-        xQueueReceive(Q2,(void *) &buff,10); // Get the data from queue
+        xQueueReceive(Q1,(void *) &Q1buff,10); // Get the data from queue
+        xQueueReceive(Q2,(void *) &Q2buff,10);
 
-        enc = (buff & ENCMASK) >> 9;
-        com = (buff & COMMASK) >> 7;
-        vlu = buff & VALMASK;
+        enc = (Q2buff & ENCMASK) >> 9;
+        com = (Q2buff & COMMASK) >> 7;
+        vlu = Q2buff & VALMASK;
 
-        if(buff & CHKMASK) // Check we have a message
+        if(Q1buff) // If any steps were pressed
+        {
+           tracks[0][1].steps = tracks[0][1].steps ^ Q1buff;
+           for (int i = 0; i < tracks[0][1].length; i++)
+           {
+               if(tracks[0][1].steps&(1 << i)){seq1[i] = CRGB::Red;}
+               else if(tracks[0][1].position != i){seq1[i] = CRGB::Black;}
+               vTaskResume(LEDs);
+           }
+           
+           
+        }
+
+        if(BPMflagLocal != BPMflag)
+        {
+            tracks[bank][1].stepInc(Q3buff);
+            BPMflagLocal = BPMflag;
+            vTaskResume(LEDs);
+        }
+
+        if(Q2buff & CHKMASK) // Check we have a message
         {
             if(com == 0b00)
             {
                 banks[bank][enc].val = vlu;
-                MIDI_send(CTRLCHANGE, channel, banks[bank][enc].CC, banks[bank][enc].val);
+
+                Q3buff = 0;
+                Q3buff = CTRLCHANGE | (banks[bank][enc].CC << 8) | (banks[bank][enc].val << 16);
+                xQueueSend(Q3,&Q3buff,10);
+                vTaskResume(MIDI);
+
+                //MIDI_send(CTRLCHANGE, channel, banks[bank][enc].CC, banks[bank][enc].val);
 
             }
-            if(com == 0b01)
+            else if(com == 0b01)
             {
                 if(vlu == 1){banks[bank][enc].incVal(1);}
                 else if(vlu == 2){banks[bank][enc].incVal(0);}
+                
+                Q3buff = 0;
+                Q3buff = CTRLCHANGE | (banks[bank][enc].CC << 8) | (banks[bank][enc].val << 16);
+                xQueueSend(Q3,&Q3buff,10);
+                vTaskResume(MIDI);
+
                 //MIDI_send(CTRLCHANGE, channel, banks[bank][enc].CC, banks[bank][enc].val);
-                MIDI_send(CTRLCHANGE, channel, 10, banks[bank][enc].val); // Hardcoding to CC 10 for now
 
                 // Debug
                 if(banks[bank][enc].val != prev[bank][enc].val){ESP_LOGI(B, "Bank %i, Enc %i: %i", bank, enc, banks[bank][enc].val);}
                 prev[bank][enc].val = banks[bank][enc].val;
             }
-            if(com == 0b10)
+            else if(com == 0b10)
             {
                 banks[bank][enc].CC = vlu;
             }
-            if(com == 0b11)
+            else if(com == 0b11)
             {}
 
-            buff = 0; // Clear the buffer or it'll keep repeating the same command              
+            Q2buff = 0; // Clear the buffer or it'll keep repeating the same command              
         }
+
+        
+
+    taskYIELD();
     /*********Task Loop***********/
     }
 
 }
-
-
-
-
-
 
 
 

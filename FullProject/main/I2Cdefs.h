@@ -89,5 +89,63 @@
 #define COL5 0b00100000
 #define COL6 0b01000000
 
+//Key names within matrix
+#define KEY1  0
+#define KEY2  8
+#define KEY3  16
+#define KEY4  24
+#define KEY5  32
+#define KEY6  40
+#define KEY7  48
+#define KEY8  1
+#define KEY9  9
+#define KEY10 17
+#define KEY11 25
+#define KEY12 33
+#define KEY13 41
+#define KEY14 49
+#define KEY15 2
+#define KEY16 10
+#define KEY17 18
+#define KEY18 26
+#define KEY19 34
+#define KEY20 42
+#define KEY21 50
+#define KEY22 3
+#define KEY23 11
+#define KEY24 19
+#define KEY25 27
+#define KEY26 35
+#define KEY27 43
+#define KEY28 51
+#define KEY29 4
+#define KEY30 12
+#define KEY31 20
+#define KEY32 28
+
+#define BUT1  36
+#define BUT2  44
+#define BUT3  52
+#define BUT4  5
+#define BUT5  13
+#define BUT6  21
+#define BUT7  29
+#define BUT8  37
+#define BUT9  45
+#define BUT10 53
+#define BUT11 6
+#define BUT12 14
+#define BUT13 // No button 13!
+#define BUT14 // No button 14!
+#define BUT15 38
+#define BUT16 54
+#define BUT17 30
+#define BUT18 30
+#define BUT19 39
+#define BUT20 47
+#define BUT21 46
+
+#define JOYB  55
+
 
 #endif
