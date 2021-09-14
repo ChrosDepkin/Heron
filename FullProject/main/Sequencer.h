@@ -25,10 +25,8 @@
 
 extern uint8_t channel;
 extern struct CRGB leds[NUM_LEDS];
-extern struct CRGB seq1[NUM_LEDS];
-extern struct CRGB seq2[NUM_LEDS];
-extern struct CRGB seq3[NUM_LEDS];
-extern struct CRGB seq4[NUM_LEDS];
+extern struct CRGB seq[4][NUM_LEDS];
+
 extern TaskHandle_t MIDI;
 extern QueueHandle_t Q3;;
 

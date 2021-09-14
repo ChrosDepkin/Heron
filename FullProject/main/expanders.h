@@ -39,7 +39,7 @@ class MCPB : public MCP // Inherits from MCP class
     public:
     using MCP::MCP;       // Need this to inherit the constructor from parent class
     void matrixRead();    // Function to read all values on the button matrix
-    bool matrixState[54];
+    bool matrixState[56];
 
 };
 

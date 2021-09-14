@@ -1,0 +1,2 @@
+Need to connect DC/RST on screen and tie LED pin high.
+Also work out pins for touch.

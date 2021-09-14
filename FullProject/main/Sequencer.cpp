@@ -10,7 +10,7 @@ void track::stepInc(uint32_t& Q3buff)
         this->position = 0; // Go back to start
         for (int i = this->length; i < this->length; i++) // Set all seq1 above length and last LED off
         {
-            if((this->steps&(1 << i)) == 0){seq1[i] = CRGB::Black;}
+            if((this->steps&(1 << i)) == 0){seq[this->bank][i] = CRGB::Black;}
         }
     } 
 
@@ -24,15 +24,15 @@ void track::stepInc(uint32_t& Q3buff)
 
         //MIDI_send(this->type, channel, this->d1, this->d2); // Send the assigned MIDI message for this track
         /* Also probably do a different LED colour */
-        if((this->steps&(1 << (this->position-1)))){seq1[this->position-1] = CRGB::Red;}
-        else{seq1[this->position-1] = CRGB::Black;}
-        seq1[this->position] = CRGB::Green;
+        if((this->steps&(1 << (this->position-1)))){seq[this->bank][this->position-1] = CRGB::Red;}
+        else{seq[this->bank][this->position-1] = CRGB::Black;}
+        seq[this->bank][this->position] = CRGB::Green;
     }
     else
     {
-        if((this->steps&(1 << (this->position-1)))){seq1[this->position-1] = CRGB::Red;}
-        else{seq1[this->position-1] = CRGB::Black;}
-        seq1[this->position] = CRGB::Blue;
+        if((this->steps&(1 << (this->position-1)))){seq[this->bank][this->position-1] = CRGB::Red;}
+        else{seq[this->bank][this->position-1] = CRGB::Black;}
+        seq[this->bank][this->position] = CRGB::Blue;
     }
 
 }
