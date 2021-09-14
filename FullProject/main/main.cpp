@@ -269,10 +269,13 @@ void Key_Task(void *pvParameter)
     MCP_B.setup(); // Setup function for matrix expander
 
     uint16_t Q1buff; // Buffer for queue 1
+    uint16_t Q3buff; // Buffer for queue 1
     uint16_t Q4buff; // Buffer for queue 4
 
     uint8_t octave = 0; // Current octave
     uint8_t check = 0;
+
+    TickType_t xDelay = 200 / portTICK_PERIOD_MS; // 200ms delay (will dial this in)
     
 
     while(1)
@@ -289,7 +292,21 @@ void Key_Task(void *pvParameter)
         else if(MCP_B.matrixState[BUT15] == 1){mode = 1;} // Bank Mode
         else if(MCP_B.matrixState[BUT16] == 1){mode = 0;} // Default Mode (nothing atm)
 
-        if(mode == 1)
+        if(mode == 0)
+        {
+            check = keyboard_check(MCP_B.matrixState, octave);
+            if(check == 1){}
+            else
+            {
+                Q3buff = NOTE_ON | (check << 8) | (64 << 16);
+                xQueueSend(Q3,&Q3buff,10);
+                check = 1;
+                vTaskResume(MIDI);
+            }
+        }
+
+
+        else if(mode == 1)
         {
             if(MCP_B.matrixState[KEY1] == 1)
                 {
@@ -366,7 +383,7 @@ void Key_Task(void *pvParameter)
 
         }
 
-    taskYIELD();
+    vTaskDelay(xDelay);
     /*********Task Loop***********/
     }
 }
@@ -418,7 +435,7 @@ void varControl(void *pvParameter)
         xQueueReceive(Q2,(void *) &Q2buff,10);
         xQueueReceive(Q4,(void *) &Q4buff,10);
 
-        enc = (Q2buff & ENCMASK) >> 9;
+        enc = (Q2buff & ENCMASK) >> 9; 
         com = (Q2buff & COMMASK) >> 7;
         vlu = Q2buff & VALMASK;
 
