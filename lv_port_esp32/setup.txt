@@ -1,0 +1,21 @@
+Changes - 
+
+Serial flasher config -> 
+	Flash SPI speed -> 20
+
+Component config ->
+	ESP32-specific ->
+		CPU frequency -> 240
+	lv_examples configuration ->
+		Slide demo widgets automatically -> [ ]
+	LVGL configuration
+		Maximal horizontal resolution -> 320
+		Maximal vertical resolution -> 240
+	LVGL TFT display controller
+		Display orientation (Portrait) -> (Landscape)
+	LVGL Touch controller
+		Select a touch panel controller model -> XPT2046
+		Touchpanel Configuration (XPT2046) ->
+			Swap XY -> [ ]
+
+Installing new fonts requires rebuild of project

@@ -63,7 +63,7 @@ void ili9341_init(void)
 		{0xC1, {0x11}, 1},          /*Power control */
 		{0xC5, {0x35, 0x3E}, 2},    /*VCOM control*/
 		{0xC7, {0xBE}, 1},          /*VCOM control*/
-		{0x36, {(1<<3)|(1<<4)|(1<<6)}, 1},          /*Memory Access Control*/
+		{0x36, {0x28}, 1},          /*Memory Access Control*/
 		{0x3A, {0x55}, 1},			/*Pixel Format Set*/
 		{0xB1, {0x00, 0x1B}, 2},
 		{0xF2, {0x08}, 1},
