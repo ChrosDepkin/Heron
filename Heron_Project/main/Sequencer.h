@@ -28,7 +28,8 @@ extern struct CRGB leds[NUM_LEDS];
 extern struct CRGB seq[4][NUM_LEDS];
 
 extern TaskHandle_t MIDI;
-extern QueueHandle_t Q3;;
+extern QueueHandle_t Q3;
+extern uint8_t trackLen;
 
 class track
 {

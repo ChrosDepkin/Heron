@@ -1,6 +1,468 @@
 #include "Keyboard.h"
 
-uint8_t keyboard_check(bool keys[54], uint8_t octave)
+void octaveClear(uint8_t octave, Notes (&note)[96])
+{
+    // Deal with notes outside of octave
+for (int i = 0; i < 96; i++)
+{
+    if(i < 12) // Octave 0 area
+    {
+        if(octave != 0) // If not in current octave (ie key cannot be held down for this note)
+        {
+            if((note[i].state == 1) | (note[i].state == 2)) // If note on was sent last round, or earlier
+            {
+                note[i].state = 3; // Send note off
+            }
+            else if(note[i].state == 3) // If note off was sent
+            {
+                note[i].state = 0; // Set to nil
+            }
+        }
+    }
+    else if(i < 24) // Octave 0 area
+    {
+        if((octave != 0) & (octave != 1)) // If not in current octave (ie key cannot be held down for this note)
+        {
+            if((note[i].state == 1) | (note[i].state == 2)) // If note on was sent last round, or earlier
+            {
+                note[i].state = 3; // Send note off
+            }
+            else if(note[i].state == 3) // If note off was sent
+            {
+                note[i].state = 0; // Set to nil
+            }
+        }
+    }
+    else if(i < 36) // Octave 1 area
+    {
+        if((octave != 1) & (octave != 2))
+        {
+            if((note[i].state == 1) | (note[i].state == 2))
+            {
+                note[i].state = 3;
+            }
+            else if(note[i].state == 3)
+            {
+                note[i].state = 0;
+            }
+        }
+    }
+    else if(i < 48) // Etc
+    {
+        if((octave != 2) & (octave != 3))
+        {
+            if((note[i].state == 1) | (note[i].state == 2))
+            {
+                note[i].state = 3;
+            }
+            else if(note[i].state == 3)
+            {
+                note[i].state = 0;
+            }
+        }
+    }
+    else if(i < 60)
+    {
+        if((octave != 3) & (octave != 4))
+        {
+            if((note[i].state == 1) | (note[i].state == 2))
+            {
+                note[i].state = 3;
+            }
+            else if(note[i].state == 3)
+            {
+                note[i].state = 0;
+            }
+        }
+    }
+    else if(i < 72)
+    {
+        if((octave != 4) & (octave != 5))
+        {
+            if((note[i].state == 1) | (note[i].state == 2))
+            {
+                note[i].state = 3;
+            }
+            else if(note[i].state == 3)
+            {
+                note[i].state = 0;
+            }
+        }
+    }
+    else if(i < 84)
+    {
+        if((octave != 5) & (octave != 6))
+        {
+            if((note[i].state == 1) | (note[i].state == 2))
+            {
+                note[i].state = 3;
+            }
+            else if(note[i].state == 3)
+            {
+                note[i].state = 0;
+            }
+        }
+    }
+    else
+    {
+        if((octave != 6) & (octave != 7))
+        {
+            if((note[i].state == 1) | (note[i].state == 2))
+            {
+                note[i].state = 3;
+            }
+            else if(note[i].state == 3)
+            {
+                note[i].state = 0;
+            }
+        }
+    }
+
+}
+}
+
+void keyboard_check(bool keys[56], uint8_t octave, Notes (&note)[96])
+{
+// Used to set octave range for note array
+int j = 0; 
+int k = 0;
+
+switch(octave) // Check what octave we're in
+{
+    case 0:
+        j = 0; // Set search boundaries accordingly
+        k = 24;// Used in for loop below
+        break;
+    case 1:
+        j = 12;
+        k = 36;
+        break;
+    case 2:
+        j = 24;
+        k = 48;
+        break;
+    case 3:
+        j = 36;
+        k = 60;
+        break;
+    case 4:
+        j = 48;
+        k = 72;
+        break;
+    case 5:
+        j = 60;
+        k = 84;
+        break;
+    case 6:
+        j = 72;
+        k = 96;
+        break;
+}
+
+for (int i = 0; j < k; i++) // For uses i for stepping through keys, and j/k for end condition and note indexing
+{
+    switch(i)
+    {
+        case 0: // For first note in this octave section
+            if(keys[KEY1] == 1) // If key 1 pressed
+            {
+                if((note[j].state == 0) | (note[j].state == 3)){note[j].state = 1;} // If note is either nil or note off last check, set to note on
+                else{note[j].state = 2;} // Else note on has already been sent, so hold
+            }
+            else // If key 1 was not pressed 
+            {
+                if((note[j].state == 1) | (note[j].state == 2)){note[j].state = 3;} // If note on or hold last check, key has been released, so set to note off
+                else{note[j].state = 0;} // Else note off has already been sent, so set to nil
+            }
+            break;
+        case 1: // Etc for each key
+            if(keys[KEY17] == 1)
+            {
+                if((note[j].state == 0) | (note[j].state == 3)){note[j].state = 1;}
+                else{note[j].state = 2;}
+            }
+            else
+            {
+                if((note[j].state == 1) | (note[j].state == 2)){note[j].state = 3;}
+                else{note[j].state = 0;}
+            }
+            break;
+        case 2:
+            if(keys[KEY2] == 1)
+            {
+                if((note[j].state == 0) | (note[j].state == 3)){note[j].state = 1;}
+                else{note[j].state = 2;}
+            }
+            else
+            {
+                if((note[j].state == 1) | (note[j].state == 2)){note[j].state = 3;}
+                else{note[j].state = 0;}
+            }
+            break;
+        case 3:
+            if(keys[KEY18] == 1)
+            {
+                if((note[j].state == 0) | (note[j].state == 3)){note[j].state = 1;}
+                else{note[j].state = 2;}
+            }
+            else
+            {
+                if((note[j].state == 1) | (note[j].state == 2)){note[j].state = 3;}
+                else{note[j].state = 0;}
+            }
+            break;
+        case 4:
+            if(keys[KEY3] == 1)
+            {
+                if((note[j].state == 0) | (note[j].state == 3)){note[j].state = 1;}
+                else{note[j].state = 2;}
+            }
+            else
+            {
+                if((note[j].state == 1) | (note[j].state == 2)){note[j].state = 3;}
+                else{note[j].state = 0;}
+            }
+            break;
+        case 5:
+            if(keys[KEY4] == 1)
+            {
+                if((note[j].state == 0) | (note[j].state == 3)){note[j].state = 1;}
+                else{note[j].state = 2;}
+            }
+            else
+            {
+                if((note[j].state == 1) | (note[j].state == 2)){note[j].state = 3;}
+                else{note[j].state = 0;}
+            }
+            break;
+        case 6:
+            if(keys[KEY20] == 1)
+            {
+                if((note[j].state == 0) | (note[j].state == 3)){note[j].state = 1;}
+                else{note[j].state = 2;}
+            }
+            else
+            {
+                if((note[j].state == 1) | (note[j].state == 2)){note[j].state = 3;}
+                else{note[j].state = 0;}
+            }
+            break;
+        case 7:
+            if(keys[KEY5] == 1)
+            {
+                if((note[j].state == 0) | (note[j].state == 3)){note[j].state = 1;}
+                else{note[j].state = 2;}
+            }
+            else
+            {
+                if((note[j].state == 1) | (note[j].state == 2)){note[j].state = 3;}
+                else{note[j].state = 0;}
+            }
+            break;
+        case 8:
+            if(keys[KEY21] == 1)
+            {
+                if((note[j].state == 0) | (note[j].state == 3)){note[j].state = 1;}
+                else{note[j].state = 2;}
+            }
+            else
+            {
+                if((note[j].state == 1) | (note[j].state == 2)){note[j].state = 3;}
+                else{note[j].state = 0;}
+            }
+            break;
+        case 9:
+            if(keys[KEY6] == 1)
+            {
+                if((note[j].state == 0) | (note[j].state == 3)){note[j].state = 1;}
+                else{note[j].state = 2;}
+            }
+            else
+            {
+                if((note[j].state == 1) | (note[j].state == 2)){note[j].state = 3;}
+                else{note[j].state = 0;}
+            }
+            break;
+        case 10:
+            if(keys[KEY22] == 1)
+            {
+                if((note[j].state == 0) | (note[j].state == 3)){note[j].state = 1;}
+                else{note[j].state = 2;}
+            }
+            else
+            {
+                if((note[j].state == 1) | (note[j].state == 2)){note[j].state = 3;}
+                else{note[j].state = 0;}
+            }
+            break;
+        case 11:
+            if(keys[KEY7] == 1)
+            {
+                if((note[j].state == 0) | (note[j].state == 3)){note[j].state = 1;}
+                else{note[j].state = 2;}
+            }
+            else
+            {
+                if((note[j].state == 1) | (note[j].state == 2)){note[j].state = 3;}
+                else{note[j].state = 0;}
+            }
+            break;
+        case 12:
+            if(keys[KEY8] == 1)
+            {
+                if((note[j].state == 0) | (note[j].state == 3)){note[j].state = 1;}
+                else{note[j].state = 2;}
+            }
+            else
+            {
+                if((note[j].state == 1) | (note[j].state == 2)){note[j].state = 3;}
+                else{note[j].state = 0;}
+            }
+            break;
+        case 13:
+            if(keys[KEY24] == 1)
+            {
+                if((note[j].state == 0) | (note[j].state == 3)){note[j].state = 1;}
+                else{note[j].state = 2;}
+            }
+            else
+            {
+                if((note[j].state == 1) | (note[j].state == 2)){note[j].state = 3;}
+                else{note[j].state = 0;}
+            }
+            break;
+        case 14:
+            if(keys[KEY9] == 1)
+            {
+                if((note[j].state == 0) | (note[j].state == 3)){note[j].state = 1;}
+                else{note[j].state = 2;}
+            }
+            else
+            {
+                if((note[j].state == 1) | (note[j].state == 2)){note[j].state = 3;}
+                else{note[j].state = 0;}
+            }
+            break;
+        case 15:
+            if(keys[KEY25] == 1)
+            {
+                if((note[j].state == 0) | (note[j].state == 3)){note[j].state = 1;}
+                else{note[j].state = 2;}
+            }
+            else
+            {
+                if((note[j].state == 1) | (note[j].state == 2)){note[j].state = 3;}
+                else{note[j].state = 0;}
+            }
+            break;
+        case 16:
+            if(keys[KEY10] == 1)
+            {
+                if((note[j].state == 0) | (note[j].state == 3)){note[j].state = 1;}
+                else{note[j].state = 2;}
+            }
+            else
+            {
+                if((note[j].state == 1) | (note[j].state == 2)){note[j].state = 3;}
+                else{note[j].state = 0;}
+            }
+            break;
+        case 17:
+            if(keys[KEY11] == 1)
+            {
+                if((note[j].state == 0) | (note[j].state == 3)){note[j].state = 1;}
+                else{note[j].state = 2;}
+            }
+            else
+            {
+                if((note[j].state == 1) | (note[j].state == 2)){note[j].state = 3;}
+                else{note[j].state = 0;}
+            }
+            break;
+        case 18:
+            if(keys[KEY27] == 1)
+            {
+                if((note[j].state == 0) | (note[j].state == 3)){note[j].state = 1;}
+                else{note[j].state = 2;}
+            }
+            else
+            {
+                if((note[j].state == 1) | (note[j].state == 2)){note[j].state = 3;}
+                else{note[j].state = 0;}
+            }
+            break;
+        case 19:
+            if(keys[KEY12] == 1)
+            {
+                if((note[j].state == 0) | (note[j].state == 3)){note[j].state = 1;}
+                else{note[j].state = 2;}
+            }
+            else
+            {
+                if((note[j].state == 1) | (note[j].state == 2)){note[j].state = 3;}
+                else{note[j].state = 0;}
+            }
+            break;
+        case 20:
+            if(keys[KEY28] == 1)
+            {
+                if((note[j].state == 0) | (note[j].state == 3)){note[j].state = 1;}
+                else{note[j].state = 2;}
+            }
+            else
+            {
+                if((note[j].state == 1) | (note[j].state == 2)){note[j].state = 3;}
+                else{note[j].state = 0;}
+            }
+            break;
+        case 21:
+            if(keys[KEY13] == 1)
+            {
+                if((note[j].state == 0) | (note[j].state == 3)){note[j].state = 1;}
+                else{note[j].state = 2;}
+            }
+            else
+            {
+                if((note[j].state == 1) | (note[j].state == 2)){note[j].state = 3;}
+                else{note[j].state = 0;}
+            }
+            break;
+        case 22:
+            if(keys[KEY29] == 1)
+            {
+                if((note[j].state == 0) | (note[j].state == 3)){note[j].state = 1;}
+                else{note[j].state = 2;}
+            }
+            else
+            {
+                if((note[j].state == 1) | (note[j].state == 2)){note[j].state = 3;}
+                else{note[j].state = 0;}
+            }
+            break;
+        case 23:
+            if(keys[KEY14] == 1)
+            {
+                if((note[j].state == 0) | (note[j].state == 3)){note[j].state = 1;}
+                else{note[j].state = 2;}
+            }
+            else
+            {
+                if((note[j].state == 1) | (note[j].state == 2)){note[j].state = 3;}
+                else{note[j].state = 0;}
+            }
+            break;
+    }
+    j++; // Increment j value for array index
+}
+
+
+}
+
+
+
+
+
+uint8_t keyInterp(bool keys[56], uint8_t octave)
 {
     if(keys[KEY1] == 1)
     {     
@@ -927,14 +1389,6 @@ uint8_t keyboard_check(bool keys[54], uint8_t octave)
     }
 return 1;
 }
-
-
-
-
-
-
-
-
 
 
 

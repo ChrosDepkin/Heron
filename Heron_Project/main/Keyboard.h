@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include "I2Cdefs.h"
+#include "MIDIsys.h"
 
 // MIDI Note Defines
 #define A0 21
@@ -119,4 +120,20 @@
 #define Fs9 126
 #define G9 127
 
-uint8_t keyboard_check(bool matrix[54], uint8_t octave);
+extern QueueHandle_t Q3;
+class Notes;
+
+void octaveClear(uint8_t octave, Notes (&note)[96]);
+void keyboard_check(bool keys[56], uint8_t octave, Notes (&note)[96]);
+uint8_t keyInterp(bool keys[56], uint8_t octave);
+
+class Notes
+{
+    public:
+    uint8_t note;
+    uint8_t state = 0;
+    // State 0 - Nil
+    //       1 - Send On
+    //       2 - Sent on
+    //       3 - Send off
+};
