@@ -6,8 +6,16 @@ extern "C" {                    // Need to put these includes in here to make it
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/portmacro.h"
+#include "esp_freertos_hooks.h"
+#include "freertos/semphr.h"
 #include "esp_system.h"
 #include "esp_spi_flash.h"
+#include "driver/gpio.h"
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "Screen.h"
 
 void app_main(void);           // main needs to be in here too or it won't compile
 }
@@ -20,6 +28,7 @@ void app_main(void);           // main needs to be in here too or it won't compi
 #include "BPM.h"
 #include "Sequencer.h"
 #include "Keyboard.h"
+
 
 
 // Prototypes
@@ -54,6 +63,8 @@ TaskHandle_t MIDI = NULL;
 MCP MCP_M(EXP_ADR_M, MCP_DEF_CONFIG, DIR_PA_M, DIR_PB_M, PU_PA_M, PU_PB_M);     // Misc. IO expander
 
 
+SemaphoreHandle_t xGuiSemaphore;
+
 
 struct CRGB leds[NUM_LEDS];
 struct CRGB bankLED[NUM_LEDS]; // Shows selected bank
@@ -87,6 +98,7 @@ void app_main(void)
     xTaskCreate(LED, "LEDtask", 2048, NULL, 5, &LEDs);
     xTaskCreate(Timer, "TimerTask", 2048, NULL, 3, &Timers); // Timer itself is called as an interrupt, so timer task doesn't need a high priority
     xTaskCreate(MIDI_Task, "LEDtask", 2048, NULL, 6, &MIDI);
+    xTaskCreatePinnedToCore(guiTask, "gui", 4096*2, NULL, 4, NULL, 1);
     // Pass in Function - Name (just for debug)- Stack size - Parameters - Priority - Handle
     // Haven't done anything with stack depth or parameters for now
     // This function gives the task permission to run on both cores - can specify cores with xTaskCreatePinnedToCore()
