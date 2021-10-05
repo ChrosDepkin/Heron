@@ -420,8 +420,11 @@ typedef void * lv_indev_drv_user_data_t;            /*Type of user data in the i
  * #define LV_FONT_CUSTOM_DECLARE LV_FONT_DECLARE(my_font_1) \
  *                                LV_FONT_DECLARE(my_font_2)
  */
+#define LV_FONT_CUSTOM_DECLARE LV_FONT_DECLARE(novamono_26)
 #define LV_FONT_CUSTOM_DECLARE LV_FONT_DECLARE(novamono_28)
 #define LV_FONT_CUSTOM_DECLARE LV_FONT_DECLARE(novamono_36)
+#define LV_FONT_CUSTOM_DECLARE LV_FONT_DECLARE(novamono_48)
+#define LV_FONT_CUSTOM_DECLARE LV_FONT_DECLARE(novamono_60)
 
 /* Enable it if you have fonts with a lot of characters.
  * The limit depends on the font size, font face and bpp

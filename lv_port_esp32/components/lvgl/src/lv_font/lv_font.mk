@@ -30,9 +30,12 @@ CSRCS += lv_font_simsun_16_cjk.c
 CSRCS += lv_font_unscii_8.c
 CSRCS += lv_font_unscii_16.c
 
+CSRCS += novamono_26.c
 CSRCS += novamono_28.c
 CSRCS += novamono_36.c
 CSRCS += novamono_48.c
+CSRCS += novamono_60.c
+CSRCS += novamono_60.c
 
 DEPPATH += --dep-path $(LVGL_DIR)/$(LVGL_DIR_NAME)/src/lv_font
 VPATH += :$(LVGL_DIR)/$(LVGL_DIR_NAME)/src/lv_font
