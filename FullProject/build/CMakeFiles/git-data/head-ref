@@ -1,0 +1,26 @@
+0000000000000000000000000000000000000000 560876b985b747bd536c1bc9df06cf74a0bb2c00 ChrosDepkin <38392605+ChrosDepkin@users.noreply.github.com> 1626235351 +1000	commit (initial): Button Expander Code
+560876b985b747bd536c1bc9df06cf74a0bb2c00 42ee0dfa7637cfd4c0663d2b2c123d30a286461c ChrosDepkin <38392605+ChrosDepkin@users.noreply.github.com> 1626244162 +1000	commit: Changes testing on boards
+42ee0dfa7637cfd4c0663d2b2c123d30a286461c 2d92272852fe71c5659f1eda53eb50bcb0a4bd81 ChrosDepkin <38392605+ChrosDepkin@users.noreply.github.com> 1626338291 +1000	commit: Missing semicolons
+2d92272852fe71c5659f1eda53eb50bcb0a4bd81 1b224d63e16e4f3c4fe80c7d2359647b102f9347 ChrosDepkin <38392605+ChrosDepkin@users.noreply.github.com> 1626413977 +1000	commit: Testing LEDs
+1b224d63e16e4f3c4fe80c7d2359647b102f9347 5244bd1d72ec5ada4192e8ce5e9f860ea235e113 ChrosDepkin <38392605+ChrosDepkin@users.noreply.github.com> 1626415403 +1000	commit: Small edit - diagnosed LED problem on one board
+5244bd1d72ec5ada4192e8ce5e9f860ea235e113 bd627bf774265150f8f3e5281b6cf0537ab42d1d ChrosDepkin <38392605+ChrosDepkin@users.noreply.github.com> 1626422807 +1000	commit: Change to new LED pin
+bd627bf774265150f8f3e5281b6cf0537ab42d1d 95afd0dfcbd3ded849efa08053e14e120f7eac63 ChrosDepkin <38392605+ChrosDepkin@users.noreply.github.com> 1626506415 +1000	commit: More board testing
+95afd0dfcbd3ded849efa08053e14e120f7eac63 e059d2fe704163cb0d6b3f45a2e322090e179d67 ChrosDepkin <38392605+ChrosDepkin@users.noreply.github.com> 1626756547 +1000	commit: Basic UART Midi code
+e059d2fe704163cb0d6b3f45a2e322090e179d67 70371d3ec25d64d1f24dd1d9a29272aed274949e ChrosDepkin <38392605+ChrosDepkin@users.noreply.github.com> 1626844535 +1000	commit: Tested out FreeRTOS using the MIDI code. Also added some comments to other files.
+70371d3ec25d64d1f24dd1d9a29272aed274949e deffad8410f2c4bb95fee2eee95475d7fb366f7d ChrosDepkin <38392605+ChrosDepkin@users.noreply.github.com> 1626924426 +1000	commit: Encoder code - working but encoders are jumpy on fast turns
+deffad8410f2c4bb95fee2eee95475d7fb366f7d b61ea08784b61acf70a3ca286fa1d2635ec73cee ChrosDepkin <38392605+ChrosDepkin@users.noreply.github.com> 1627018778 +1000	commit: Started integrating parts into the OS - removed OS test project
+b61ea08784b61acf70a3ca286fa1d2635ec73cee 1124d7693d462c56ae5ddfe14bad794caeef5285 ChrosDepkin <38392605+ChrosDepkin@users.noreply.github.com> 1627540460 +1000	commit: Split up tasks better, added priorities, added encoder banking, added class to track axo variables
+1124d7693d462c56ae5ddfe14bad794caeef5285 1cd19b50820cd8cf5765f57a41a414c73b569da0 ChrosDepkin <38392605+ChrosDepkin@users.noreply.github.com> 1628748813 +1000	commit: Big gap with updates - main change is adding variable control
+1cd19b50820cd8cf5765f57a41a414c73b569da0 66b2de5ade63ef981971f0aca69dd17268123b39 ChrosDepkin <38392605+ChrosDepkin@users.noreply.github.com> 1628749497 +1000	commit: Small errors fixed
+66b2de5ade63ef981971f0aca69dd17268123b39 ea1d509146ef8403180737bea88393aa163e7dbc ChrosDepkin <38392605+ChrosDepkin@users.noreply.github.com> 1629179324 +1000	commit: Expanded the MIDI system
+ea1d509146ef8403180737bea88393aa163e7dbc 752c3fc78eb13cc6f1be44286ec74c2155bedfad ChrosDepkin <38392605+ChrosDepkin@users.noreply.github.com> 1629958249 +1000	commit: LED Stuff
+752c3fc78eb13cc6f1be44286ec74c2155bedfad 28823cbf3f0714515ef7970c6e97eaad9659a0c4 ChrosDepkin <38392605+ChrosDepkin@users.noreply.github.com> 1629959663 +1000	pull --progress origin: Fast-forward
+28823cbf3f0714515ef7970c6e97eaad9659a0c4 35989a4bb07cbcb81b52fc0a74e998fea21113ff ChrosDepkin <38392605+ChrosDepkin@users.noreply.github.com> 1629959789 +1000	pull --progress origin: Fast-forward
+35989a4bb07cbcb81b52fc0a74e998fea21113ff 0fd8be21fccab4ebcad7b9120a738140cf6ecc0d ChrosDepkin <38392605+ChrosDepkin@users.noreply.github.com> 1629960052 +1000	commit: Create Settings.png
+0fd8be21fccab4ebcad7b9120a738140cf6ecc0d d9c604137104333092311688837ad8bfd3bf1683 ChrosDepkin <38392605+ChrosDepkin@users.noreply.github.com> 1630570524 +1000	commit: Added BPM timer + control - also tried to get LVGL working
+d9c604137104333092311688837ad8bfd3bf1683 4e652a428afce5746fab57b9ab8fc3b4b23cfd4f ChrosDepkin <38392605+ChrosDepkin@users.noreply.github.com> 1631170584 +1000	commit: Sequencer functioning at a basic level
+4e652a428afce5746fab57b9ab8fc3b4b23cfd4f 3cae7e57fb15c769ae4624eb32242f561151dbc3 ChrosDepkin <38392605+ChrosDepkin@users.noreply.github.com> 1631601098 +1000	commit: Sequencers can now assign notes - perfomance also massively improved
+3cae7e57fb15c769ae4624eb32242f561151dbc3 9b8a9eb7e9810aade3af9234a803ef19baf6d8a9 ChrosDepkin <38392605+ChrosDepkin@users.noreply.github.com> 1631604101 +1000	commit: Added basic keyboard mode
+9b8a9eb7e9810aade3af9234a803ef19baf6d8a9 aec82aa420ac8ce341dde2887a5ef6c718cd1c6a ChrosDepkin <38392605+ChrosDepkin@users.noreply.github.com> 1632702478 +1000	commit: Shifted code into new project
+aec82aa420ac8ce341dde2887a5ef6c718cd1c6a ae8796e4f78385a0a76ed967bbbcfcc709a1fed6 ChrosDepkin <38392605+ChrosDepkin@users.noreply.github.com> 1632702481 +1000	pull --progress origin: Merge made by the 'recursive' strategy.
+ae8796e4f78385a0a76ed967bbbcfcc709a1fed6 bdf14bf13d22bfe71f68aa5acc1638ad98afe632 ChrosDepkin <38392605+ChrosDepkin@users.noreply.github.com> 1633088897 +1000	commit: Overhauled MIDI system

@@ -16,6 +16,8 @@ extern "C" {                    // Need to put these includes in here to make it
 #include <stdlib.h>
 #include <string.h>
 #include "Screen.h"
+#include "nvs_flash.h"
+#include "nvs.h"
 
 void app_main(void);           // main needs to be in here too or it won't compile
 }
@@ -45,12 +47,14 @@ void Sequencer_Task(void *pvParameter);
 
 // Queues for sending data between tasks
 QueueHandle_t Q1; // Using this to send sequencer data from key task to variable control
-QueueHandle_t Q2; // Using this to pass new values to axoVars - will presumably come from different sources as it controls both values and CC channels
+QueueHandle_t Q2; // Encoder to AxoVar queue
 QueueHandle_t Q3; // MIDI queue
 QueueHandle_t Q4; // Track note assignment queue
+QueueHandle_t Q5; // Save/Recall command queue
 
 // Global Variables
 uint8_t bank = 0; // Currently selected bank
+uint8_t trackBank = 0;
 uint8_t channel = 1; // Current MIDI channel (hardcoded to 1 for now)
 uint8_t BPM = 60; // Current BPM
 bool BPMflag = 0;
@@ -68,6 +72,7 @@ SemaphoreHandle_t xGuiSemaphore;
 
 struct CRGB leds[NUM_LEDS];
 struct CRGB bankLED[NUM_LEDS]; // Shows selected bank
+struct CRGB trackBankLED[NUM_LEDS];
 struct CRGB seq[4][NUM_LEDS]; // Sequence LEDs
 
 
@@ -86,6 +91,7 @@ void app_main(void)
     Q2 = xQueueCreate(8, sizeof(uint16_t));
     Q3 = xQueueCreate(8, sizeof(uint32_t));
     Q4 = xQueueCreate(8, sizeof(uint16_t));
+    Q5 = xQueueCreate(8, sizeof(uint8_t));
 
     
 
@@ -95,7 +101,7 @@ void app_main(void)
     xTaskCreate(Encoder_Task, "EncTask", 2048, NULL, 4, &Enc);
     xTaskCreate(Key_Task, "KeyTask", 2048, NULL, 4, &Key);
     xTaskCreate(varControl, "VarControl", 4096, NULL, 5, &varCtrl);
-    xTaskCreate(LED, "LEDtask", 2048, NULL, 5, &LEDs);
+    xTaskCreate(LED, "LEDtask", 2048, NULL, 6, &LEDs);
     xTaskCreate(Timer, "TimerTask", 2048, NULL, 3, &Timers); // Timer itself is called as an interrupt, so timer task doesn't need a high priority
     xTaskCreate(MIDI_Task, "LEDtask", 2048, NULL, 6, &MIDI);
     xTaskCreatePinnedToCore(guiTask, "gui", 4096*2, NULL, 4, NULL, 1);
@@ -176,11 +182,12 @@ void MIDI_Task(void *pvParameter)
 
 
 
-
 void LED(void *pvParameter)
 {
     CLEDController* controller = &FastLED.addLeds<LED_TYPE, DATA_PIN, COLOR_ORDER>(leds, NUM_LEDS);
     FastLED.setBrightness(50);
+    bankLED[0] = CRGB::Orange;
+    trackBankLED[0] = CRGB::Purple;
 
 
     for(;;)
@@ -195,7 +202,7 @@ void LED(void *pvParameter)
         controller->show(bankLED, NUM_LEDS, FastLED.getBrightness());
         break;
     case 2: // BPM Mode
-            controller->show(seq[bank], NUM_LEDS, FastLED.getBrightness()); // Just show sequencer data in BPM mode
+            controller->show(trackBankLED, NUM_LEDS, FastLED.getBrightness());
         break;
     case 3: // Sequencer Mode
             controller->show(seq[bank], NUM_LEDS, FastLED.getBrightness());
@@ -283,20 +290,36 @@ void Key_Task(void *pvParameter)
     uint16_t Q1buff; // Buffer for queue 1
     uint16_t Q3buff; // Buffer for queue 1
     uint16_t Q4buff; // Buffer for queue 4
+    uint8_t Q5buff; // Buffer for queue 5
 
     uint8_t octave = 0; // Current octave
     uint8_t check = 0;
 
     TickType_t xDelay = 200 / portTICK_PERIOD_MS; // 200ms delay (will dial this in)
+
+
+
     
 
     while(1)
     {
     /*********Task Loop***********/
         MCP_B.matrixRead(); // Read the button matrix
-        //taskYIELD();
+
         if(MCP_B.matrixState[BUT21] == 1){if(octave > 0){octave--;}}
         if(MCP_B.matrixState[BUT16] == 1){if(octave < 7){octave++;}}
+
+        if(MCP_B.matrixState[BUT9] == 1)
+        {
+            Q5buff = 1;
+            xQueueSend(Q5,&Q5buff,10);
+        }
+        else if(MCP_B.matrixState[BUT10] == 1)
+        {
+            Q5buff = 2;
+            xQueueSend(Q5,&Q5buff,10);
+        }
+
 
         if(MCP_B.matrixState[BUT19] == 1){mode = 4;} // Track keyboard mode
         else if(MCP_B.matrixState[ BUT4] == 1){mode = 3;} // Sequencer Mode
@@ -327,6 +350,7 @@ void Key_Task(void *pvParameter)
                     bankLED[1] = CRGB::Black;
                     bankLED[2] = CRGB::Black;
                     bankLED[3] = CRGB::Black;
+                    vTaskResume(LEDs);
                 } 
             else if(MCP_B.matrixState[KEY2] == 1)
                 {
@@ -335,6 +359,7 @@ void Key_Task(void *pvParameter)
                     bankLED[1] = CRGB::Orange;
                     bankLED[2] = CRGB::Black;
                     bankLED[3] = CRGB::Black;
+                    vTaskResume(LEDs);
                 } 
             else if(MCP_B.matrixState[KEY3] == 1)
                 {
@@ -343,6 +368,7 @@ void Key_Task(void *pvParameter)
                     bankLED[1] = CRGB::Black;
                     bankLED[2] = CRGB::Orange;
                     bankLED[3] = CRGB::Black;
+                    vTaskResume(LEDs);
                 }  
             else if(MCP_B.matrixState[KEY4] == 1)
                 {
@@ -351,11 +377,50 @@ void Key_Task(void *pvParameter)
                     bankLED[1] = CRGB::Black;
                     bankLED[2] = CRGB::Black;
                     bankLED[3] = CRGB::Orange;
+                    vTaskResume(LEDs);
                 } 
         }
         
         else if(mode == 2)
-        {/* Nothing for keys to do in BPM mode yet */}
+        {
+            if(MCP_B.matrixState[KEY1] == 1)
+            {
+                trackBank = 0;
+                trackBankLED[0] = CRGB::Purple;
+                trackBankLED[1] = CRGB::Black;
+                trackBankLED[2] = CRGB::Black;
+                trackBankLED[3] = CRGB::Black;
+                vTaskResume(LEDs);
+            }
+            else if(MCP_B.matrixState[KEY2] == 1)
+            {
+                trackBank = 1;
+                trackBankLED[0] = CRGB::Black;
+                trackBankLED[1] = CRGB::Purple;
+                trackBankLED[2] = CRGB::Black;
+                trackBankLED[3] = CRGB::Black;
+                vTaskResume(LEDs);
+            }
+            else if(MCP_B.matrixState[KEY3] == 1)
+            {
+                trackBank = 2;
+                trackBankLED[0] = CRGB::Black;
+                trackBankLED[1] = CRGB::Black;
+                trackBankLED[2] = CRGB::Purple;
+                trackBankLED[3] = CRGB::Black;
+                vTaskResume(LEDs);
+            }
+            else if(MCP_B.matrixState[KEY4] == 1)
+            {
+                trackBank = 3;
+                trackBankLED[0] = CRGB::Black;
+                trackBankLED[1] = CRGB::Black;
+                trackBankLED[2] = CRGB::Black;
+                trackBankLED[3] = CRGB::Purple;
+                vTaskResume(LEDs);
+            }
+            
+        }
 
         else if(mode == 3)
         {
@@ -408,6 +473,7 @@ void varControl(void *pvParameter)
     uint16_t Q2buff = 0;
     uint32_t Q3buff = 0;
     uint32_t Q4buff = 0;
+    uint8_t Q5buff = 0;
 
     axoVar banks[4][8]; // 2D array - 4 banks of 8 encoders
     track tracks[4][2]; // 4 banks of 2 tracks
@@ -424,6 +490,10 @@ void varControl(void *pvParameter)
     tracks[3][1].type = NOTE_ON;
     tracks[3][1].d2 = 64; // Velocity 64
     tracks[3][1].bank = 3;
+
+    
+    nvs_flash_init();
+    nvs_handle storage_handle;
 
 
     // Variables for deconstructing queue messages
@@ -446,11 +516,11 @@ void varControl(void *pvParameter)
         xQueueReceive(Q1,(void *) &Q1buff,10); // Get the data from queue
         xQueueReceive(Q2,(void *) &Q2buff,10);
         xQueueReceive(Q4,(void *) &Q4buff,10);
+        xQueueReceive(Q5,(void *) &Q5buff,10);
 
         enc = (Q2buff & ENCMASK) >> 9; 
         com = (Q2buff & COMMASK) >> 7;
         vlu = Q2buff & VALMASK;
-
 
         if(Q1buff) // If any steps were pressed
         {
@@ -478,7 +548,8 @@ void varControl(void *pvParameter)
             }
             
             BPMflagLocal = BPMflag;
-            vTaskResume(LEDs);
+            if((mode == 2) | (mode == 3) | (mode == 4))
+            {vTaskResume(LEDs);}
             taskYIELD();
         }
 
@@ -515,6 +586,97 @@ void varControl(void *pvParameter)
 
             Q2buff = 0; // Clear the buffer or it'll keep repeating the same command
             taskYIELD();              
+        }
+        if(Q5buff)
+        {
+            if(Q5buff == 1)
+            {
+                nvs_open("CC_Storage", NVS_READWRITE, &storage_handle);
+
+                nvs_set_u8(storage_handle, "B0E0", banks[0][0].CC);
+                nvs_set_u8(storage_handle, "B0E1", banks[0][1].CC);
+                nvs_set_u8(storage_handle, "B0E2", banks[0][2].CC);
+                nvs_set_u8(storage_handle, "B0E3", banks[0][3].CC);
+                nvs_set_u8(storage_handle, "B0E4", banks[0][4].CC);
+                nvs_set_u8(storage_handle, "B0E5", banks[0][5].CC);
+                nvs_set_u8(storage_handle, "B0E6", banks[0][6].CC);
+                nvs_set_u8(storage_handle, "B0E7", banks[0][7].CC);
+
+                nvs_set_u8(storage_handle, "B1E0", banks[1][0].CC);
+                nvs_set_u8(storage_handle, "B1E1", banks[1][1].CC);
+                nvs_set_u8(storage_handle, "B1E2", banks[1][2].CC);
+                nvs_set_u8(storage_handle, "B1E3", banks[1][3].CC);
+                nvs_set_u8(storage_handle, "B1E4", banks[1][4].CC);
+                nvs_set_u8(storage_handle, "B1E5", banks[1][5].CC);
+                nvs_set_u8(storage_handle, "B1E6", banks[1][6].CC);
+                nvs_set_u8(storage_handle, "B1E7", banks[1][7].CC);
+
+                nvs_set_u8(storage_handle, "B2E0", banks[2][0].CC);
+                nvs_set_u8(storage_handle, "B2E1", banks[2][1].CC);
+                nvs_set_u8(storage_handle, "B2E2", banks[2][2].CC);
+                nvs_set_u8(storage_handle, "B2E3", banks[2][3].CC);
+                nvs_set_u8(storage_handle, "B2E4", banks[2][4].CC);
+                nvs_set_u8(storage_handle, "B2E5", banks[2][5].CC);
+                nvs_set_u8(storage_handle, "B2E6", banks[2][6].CC);
+                nvs_set_u8(storage_handle, "B2E7", banks[2][7].CC);
+
+                nvs_set_u8(storage_handle, "B3E0", banks[3][0].CC);
+                nvs_set_u8(storage_handle, "B3E1", banks[3][1].CC);
+                nvs_set_u8(storage_handle, "B3E2", banks[3][2].CC);
+                nvs_set_u8(storage_handle, "B3E3", banks[3][3].CC);
+                nvs_set_u8(storage_handle, "B3E4", banks[3][4].CC);
+                nvs_set_u8(storage_handle, "B3E5", banks[3][5].CC);
+                nvs_set_u8(storage_handle, "B3E6", banks[3][6].CC);
+                nvs_set_u8(storage_handle, "B3E7", banks[3][7].CC);
+
+                nvs_commit(storage_handle);
+                nvs_close(storage_handle);
+                
+            }
+            else if(Q5buff == 2)
+            {
+                nvs_open("CC_Storage", NVS_READWRITE, &storage_handle);
+
+                nvs_get_u8(storage_handle, "B0E0", &banks[0][0].CC);
+                nvs_get_u8(storage_handle, "B0E1", &banks[0][1].CC);
+                nvs_get_u8(storage_handle, "B0E2", &banks[0][2].CC);
+                nvs_get_u8(storage_handle, "B0E3", &banks[0][3].CC);
+                nvs_get_u8(storage_handle, "B0E4", &banks[0][4].CC);
+                nvs_get_u8(storage_handle, "B0E5", &banks[0][5].CC);
+                nvs_get_u8(storage_handle, "B0E6", &banks[0][6].CC);
+                nvs_get_u8(storage_handle, "B0E7", &banks[0][7].CC);
+
+                nvs_get_u8(storage_handle, "B1E0", &banks[1][0].CC);
+                nvs_get_u8(storage_handle, "B1E1", &banks[1][1].CC);
+                nvs_get_u8(storage_handle, "B1E2", &banks[1][2].CC);
+                nvs_get_u8(storage_handle, "B1E3", &banks[1][3].CC);
+                nvs_get_u8(storage_handle, "B1E4", &banks[1][4].CC);
+                nvs_get_u8(storage_handle, "B1E5", &banks[1][5].CC);
+                nvs_get_u8(storage_handle, "B1E6", &banks[1][6].CC);
+                nvs_get_u8(storage_handle, "B1E7", &banks[1][7].CC);
+
+                nvs_get_u8(storage_handle, "B2E0", &banks[2][0].CC);
+                nvs_get_u8(storage_handle, "B2E1", &banks[2][1].CC);
+                nvs_get_u8(storage_handle, "B2E2", &banks[2][2].CC);
+                nvs_get_u8(storage_handle, "B2E3", &banks[2][3].CC);
+                nvs_get_u8(storage_handle, "B2E4", &banks[2][4].CC);
+                nvs_get_u8(storage_handle, "B2E5", &banks[2][5].CC);
+                nvs_get_u8(storage_handle, "B2E6", &banks[2][6].CC);
+                nvs_get_u8(storage_handle, "B2E7", &banks[2][7].CC);
+
+                nvs_get_u8(storage_handle, "B3E0", &banks[3][0].CC);
+                nvs_get_u8(storage_handle, "B3E1", &banks[3][1].CC);
+                nvs_get_u8(storage_handle, "B3E2", &banks[3][2].CC);
+                nvs_get_u8(storage_handle, "B3E3", &banks[3][3].CC);
+                nvs_get_u8(storage_handle, "B3E4", &banks[3][4].CC);
+                nvs_get_u8(storage_handle, "B3E5", &banks[3][5].CC);
+                nvs_get_u8(storage_handle, "B3E6", &banks[3][6].CC);
+                nvs_get_u8(storage_handle, "B3E7", &banks[3][7].CC);
+
+                nvs_close(storage_handle);
+            }
+
+            Q5buff = 0;
         }
 
     /*********Task Loop***********/

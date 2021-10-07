@@ -103,8 +103,8 @@ void app_main(void)
     xTaskCreate(varControl, "VarControl", 4096, NULL, 5, &varCtrl);
     xTaskCreatePinnedToCore(LED, "LEDtask", 2048, NULL, 6, &LEDs, 0);
     xTaskCreate(Timer, "TimerTask", 2048, NULL, 3, &Timers); // Timer itself is called as an interrupt, so timer task doesn't need a high priority
-    xTaskCreate(MIDI_Task, "LEDtask", 2048, NULL, 6, &MIDI);
-    xTaskCreatePinnedToCore(guiTask, "gui", 4096*2, NULL, 4, NULL, 1);
+    xTaskCreate(MIDI_Task, "LEDtask", 2048, NULL, 5, &MIDI);
+    xTaskCreatePinnedToCore(guiTask, "gui", 4096*2, NULL, 7, NULL, 1);
     // Pass in Function - Name (just for debug)- Stack size - Parameters - Priority - Handle
     // Haven't done anything with stack depth or parameters for now
     // This function gives the task permission to run on both cores - can specify cores with xTaskCreatePinnedToCore()
@@ -161,9 +161,9 @@ void Timer(void *pvParameter)
 void MIDI_Task(void *pvParameter)
 {
  uint32_t Q3buff = 0; // Buffer for queue 3
- uint8_t status =0;
- uint8_t d1 =0;
- uint8_t d2 =0;
+ uint8_t status = 0;
+ uint8_t d1 = 0;
+ uint8_t d2 = 0;
 
  for (;;)
  {
@@ -302,7 +302,7 @@ void Key_Task(void *pvParameter)
     MCP_B.setup(); // Setup function for matrix expander
 
     uint16_t Q1buff; // Buffer for queue 1
-    uint16_t Q3buff; // Buffer for queue 1
+    uint32_t Q3buff; // Buffer for queue 1
     uint16_t Q4buff; // Buffer for queue 4
     uint8_t Q5buff; // Buffer for queue 5
 
@@ -362,6 +362,7 @@ void Key_Task(void *pvParameter)
  
         if(mode == 0)
         {
+            
             octaveClear(octave, notes); // Process all notes out of octave
             keyboard_check(MCP_B.matrixState, octave, notes); // Check all notes in octave
             for(int i = 0; i < 96; i ++) // Step through each note
@@ -380,6 +381,7 @@ void Key_Task(void *pvParameter)
                 }
                 // States 0 & 2 will hold a note (either on or off) so no message needed
             }
+            
         }
 
 
