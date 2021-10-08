@@ -1232,28 +1232,28 @@ e.g. "stm32f769xx.h" or "stm32f429xx.h" */
 #  ifdef CONFIG_LV_THEME_DEFAULT_FONT_SMALL
 #    define LV_THEME_DEFAULT_FONT_SMALL CONFIG_LV_THEME_DEFAULT_FONT_SMALL
 #  else
-#    define  LV_THEME_DEFAULT_FONT_SMALL         &lv_font_montserrat_14
+#    define  LV_THEME_DEFAULT_FONT_SMALL         &novamono_26
 #  endif
 #endif
 #ifndef LV_THEME_DEFAULT_FONT_NORMAL
 #  ifdef CONFIG_LV_THEME_DEFAULT_FONT_NORMAL
 #    define LV_THEME_DEFAULT_FONT_NORMAL CONFIG_LV_THEME_DEFAULT_FONT_NORMAL
 #  else
-#    define  LV_THEME_DEFAULT_FONT_NORMAL        &lv_font_montserrat_14
+#    define  LV_THEME_DEFAULT_FONT_NORMAL        &novamono_26
 #  endif
 #endif
 #ifndef LV_THEME_DEFAULT_FONT_SUBTITLE
 #  ifdef CONFIG_LV_THEME_DEFAULT_FONT_SUBTITLE
 #    define LV_THEME_DEFAULT_FONT_SUBTITLE CONFIG_LV_THEME_DEFAULT_FONT_SUBTITLE
 #  else
-#    define  LV_THEME_DEFAULT_FONT_SUBTITLE      &lv_font_montserrat_14
+#    define  LV_THEME_DEFAULT_FONT_SUBTITLE      &novamono_26
 #  endif
 #endif
 #ifndef LV_THEME_DEFAULT_FONT_TITLE
 #  ifdef CONFIG_LV_THEME_DEFAULT_FONT_TITLE
 #    define LV_THEME_DEFAULT_FONT_TITLE CONFIG_LV_THEME_DEFAULT_FONT_TITLE
 #  else
-#    define  LV_THEME_DEFAULT_FONT_TITLE         &lv_font_montserrat_14
+#    define  LV_THEME_DEFAULT_FONT_TITLE         &novamono_26
 #  endif
 #endif
 
