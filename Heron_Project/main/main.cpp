@@ -63,6 +63,8 @@ TaskHandle_t LEDs = NULL; // LED task needs to be global as it suspends itself a
 TaskHandle_t MIDI = NULL;
 uint8_t trackLen = 15;
 uint8_t octave = 0; // Current octave
+uint8_t arcValues[8];
+uint8_t keyboardVel = 64;
 
 // Things that don't go anywhere yet
 MCP MCP_M(EXP_ADR_M, MCP_DEF_CONFIG, DIR_PA_M, DIR_PB_M, PU_PA_M, PU_PB_M);     // Misc. IO expander
@@ -251,6 +253,7 @@ void Encoder_Task(void *pvParameter)
     uint16_t Q2buff; // Buffer for queue 2
 
     uint8_t BPMp = BPM; // Local BPM variable
+    uint8_t velP = keyboardVel;
 
 
     
@@ -289,6 +292,17 @@ void Encoder_Task(void *pvParameter)
                 }
             else   
                 BPM = BPMp;
+
+            if(MCP_E.Turn[2] == 1)
+                {
+                    if(velP < 127)velP++;
+                }
+            else if(MCP_E.Turn[2] == 2)
+                {
+                    if(velP > 1){velP--;}
+                }
+            else   
+                keyboardVel = velP;
         }
     
     /*********Task Loop***********/
@@ -361,13 +375,13 @@ void Key_Task(void *pvParameter)
             {
                 if(notes[i].state == 1) // State 1 means send note on
                 {
-                    Q3buff = NOTE_ON | (notes[i].note << 8) | (64 << 16); // Load up buffer
+                    Q3buff = NOTE_ON | (notes[i].note << 8) | (keyboardVel << 16); // Load up buffer
                     xQueueSend(Q3,&Q3buff,10); // And add it to the queue
                     vTaskResume(MIDI);
                 }
                 else if(notes[i].state == 3) // State 3 means send note off
                 {
-                    Q3buff = NOTE_OFF | (notes[i].note << 8) | (64 << 16);
+                    Q3buff = NOTE_OFF | (notes[i].note << 8) | (keyboardVel << 16);
                     xQueueSend(Q3,&Q3buff,10);
                     vTaskResume(MIDI);
                 }
@@ -716,9 +730,20 @@ void varControl(void *pvParameter)
     for(;;)
     {
     /*********Task Loop***********/
-        Q5buff = 0;
+        /*Q5buff = 0;
         Q5buff = (banks[bank][7].val) | ((uint64_t)banks[bank][5].val << 8) | ((uint64_t)banks[bank][3].val << 16) | ((uint64_t)banks[bank][1].val << 24) | ((uint64_t)banks[bank][6].val << 32) | ((uint64_t)banks[bank][4].val << 40) | ((uint64_t)banks[bank][2].val << 48) | ((uint64_t)banks[bank][0].val << 56);
         xQueueSend(Q5,&Q5buff,10);
+        taskYIELD();*/
+
+        arcValues[0] = banks[bank][7].val;
+        arcValues[1] = banks[bank][5].val;
+        arcValues[2] = banks[bank][3].val;
+        arcValues[3] = banks[bank][1].val;
+        arcValues[4] = banks[bank][6].val;
+        arcValues[5] = banks[bank][4].val;
+        arcValues[6] = banks[bank][2].val;
+        arcValues[7] = banks[bank][0].val;
+        
 
         xQueueReceive(Q1,(void *) &Q1buff,10); // Get the data from queue
         xQueueReceive(Q2,(void *) &Q2buff,10);

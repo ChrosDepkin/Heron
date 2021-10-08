@@ -150,7 +150,7 @@ uint8_t slider2Val = 0;
 uint8_t slider1Check = 0;
 uint8_t slider2Check = 0;
 
-uint8_t arcValues[8];
+extern uint8_t arcValues[8];
 uint8_t arcChecks[8];
 
 LV_FONT_DECLARE(novamono_26);
@@ -974,10 +974,10 @@ void lv_demo_widgets(void)
      *  ArcValues
      ****************/
 
-    for (int i = 1; i < 8; ++i){
+    /*for (int i = 1; i < 8; ++i){
       arcValues[i] = 0;
       arcChecks[i] = 0;
-    }
+    }*/
 
     /****************
      *  STYLE INIT
@@ -1149,7 +1149,7 @@ static void octave_updater(lv_task_t * t)
 
 static void arc_anim(lv_task_t * t)
     {
-      Q5buff = 0;
+      /*Q5buff = 0;
       xQueueReceive(Q5,(void *) &Q5buff,10);
       arcValues[0] = Q5buff & 0xFF;
       arcValues[1] = (Q5buff & 0xFF00) >> 8;
@@ -1158,7 +1158,7 @@ static void arc_anim(lv_task_t * t)
       arcValues[4] = (Q5buff & 0xFF00000000) >> 32;
       arcValues[5] = (Q5buff & 0xFF0000000000) >> 40;
       arcValues[6] = (Q5buff & 0xFF000000000000) >> 48;
-      arcValues[7] = (Q5buff & 0xFF00000000000000) >> 56;
+      arcValues[7] = (Q5buff & 0xFF00000000000000) >> 56;*/
       
 
 
