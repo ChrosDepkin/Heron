@@ -32,7 +32,6 @@ void app_main(void);           // main needs to be in here too or it won't compi
 #include "Keyboard.h"
 
 
-
 // Prototypes
 void I2C_Config(void *pvParameter);
 void Encoder_Task(void *pvParameter);
@@ -63,7 +62,9 @@ TaskHandle_t LEDs = NULL; // LED task needs to be global as it suspends itself a
 TaskHandle_t MIDI = NULL;
 uint8_t trackLen = 15;
 uint8_t octave = 0; // Current octave
-uint8_t arcValues[8];
+uint8_t arcValues[8] = {0};
+uint8_t arcCCVal[8] = {0};
+extern uint8_t arcBool[8];
 uint8_t keyboardVel = 64;
 
 // Things that don't go anywhere yet
@@ -183,7 +184,6 @@ void MIDI_Task(void *pvParameter)
      }
      vTaskSuspend(NULL);
      
-
  }
  
 
@@ -685,6 +685,7 @@ void Key_Task(void *pvParameter)
 void varControl(void *pvParameter)
 {
     bool BPMflagLocal = 0;
+    bool sendCheck = 0;
     uint16_t Q1buff = 0;
     uint16_t Q2buff = 0;
     uint32_t Q3buff = 0;
@@ -694,8 +695,6 @@ void varControl(void *pvParameter)
     axoVar banks[4][8]; // 2D array - 4 banks of 8 encoders
     TrackClass tracks[4][2]; // 4 banks of 2 tracks
 
-    banks[0][0].CC = 1;
-    banks[0][1].CC = 2;
 
     tracks[0][1].type = NOTE_ON;
     tracks[0][1].d2 = 64; // Velocity 64
@@ -743,6 +742,15 @@ void varControl(void *pvParameter)
         arcValues[5] = banks[bank][4].val;
         arcValues[6] = banks[bank][2].val;
         arcValues[7] = banks[bank][0].val;
+
+        arcCCVal[0] = banks[bank][7].CC;
+        arcCCVal[1] = banks[bank][5].CC;
+        arcCCVal[2] = banks[bank][3].CC;
+        arcCCVal[3] = banks[bank][1].CC;
+        arcCCVal[4] = banks[bank][6].CC;
+        arcCCVal[5] = banks[bank][4].CC;
+        arcCCVal[6] = banks[bank][2].CC;
+        arcCCVal[7] = banks[bank][0].CC;
         
 
         xQueueReceive(Q1,(void *) &Q1buff,10); // Get the data from queue
@@ -795,13 +803,102 @@ void varControl(void *pvParameter)
             }
             else if(com == 0b01)
             {
-                if(vlu == 1){banks[bank][enc].incVal(1);}
-                else if(vlu == 2){banks[bank][enc].incVal(0);}
+                if(vlu == 1)
+                {
+                    if(enc == 0)
+                    {
+                        if(arcBool[7] == 0){banks[bank][enc].incVal(1); sendCheck = 1;}
+                        else{banks[bank][enc].incCC(1);}
+                    }
+                    if(enc == 1)
+                    {
+                        if(arcBool[3] == 0){banks[bank][enc].incVal(1); sendCheck = 1;}
+                        else{banks[bank][enc].incCC(1);}
+                    }
+                    if(enc == 2)
+                    {
+                        if(arcBool[6] == 0){banks[bank][enc].incVal(1); sendCheck = 1;}
+                        else{banks[bank][enc].incCC(1);}
+                    }
+                    if(enc == 3)
+                    {
+                        if(arcBool[2] == 0){banks[bank][enc].incVal(1); sendCheck = 1;}
+                        else{banks[bank][enc].incCC(1);}
+                    }
+                    if(enc == 4)
+                    {
+                        if(arcBool[5] == 0){banks[bank][enc].incVal(1); sendCheck = 1;}
+                        else{banks[bank][enc].incCC(1);}
+                    }
+                    if(enc == 5)
+                    {
+                        if(arcBool[1] == 0){banks[bank][enc].incVal(1); sendCheck = 1;}
+                        else{banks[bank][enc].incCC(1);}
+                    }
+                    if(enc == 6)
+                    {
+                        if(arcBool[4] == 0){banks[bank][enc].incVal(1); sendCheck = 1;}
+                        else{banks[bank][enc].incCC(1);}
+                    }
+                    if(enc == 7)
+                    {
+                        if(arcBool[0] == 0){banks[bank][enc].incVal(1); sendCheck = 1;}
+                        else{banks[bank][enc].incCC(1);}
+                    }
+                    
+                }
+                else if(vlu == 2)
+                {
+                    if(enc == 0)
+                    {
+                        if(arcBool[7] == 0){banks[bank][enc].incVal(0); sendCheck = 1;}
+                        else{banks[bank][enc].incCC(0);}
+                    }
+                    if(enc == 1)
+                    {
+                        if(arcBool[3] == 0){banks[bank][enc].incVal(0); sendCheck = 1;}
+                        else{banks[bank][enc].incCC(0);}
+                    }
+                    if(enc == 2)
+                    {
+                        if(arcBool[6] == 0){banks[bank][enc].incVal(0); sendCheck = 1;}
+                        else{banks[bank][enc].incCC(0);}
+                    }
+                    if(enc == 3)
+                    {
+                        if(arcBool[2] == 0){banks[bank][enc].incVal(0); sendCheck = 1;}
+                        else{banks[bank][enc].incCC(0);}
+                    }
+                    if(enc == 4)
+                    {
+                        if(arcBool[5] == 0){banks[bank][enc].incVal(0); sendCheck = 1;}
+                        else{banks[bank][enc].incCC(0);}
+                    }
+                    if(enc == 5)
+                    {
+                        if(arcBool[1] == 0){banks[bank][enc].incVal(0); sendCheck = 1;}
+                        else{banks[bank][enc].incCC(0);}
+                    }
+                    if(enc == 6)
+                    {
+                        if(arcBool[4] == 0){banks[bank][enc].incVal(0); sendCheck = 1;}
+                        else{banks[bank][enc].incCC(0);}
+                    }
+                    if(enc == 7)
+                    {
+                        if(arcBool[0] == 0){banks[bank][enc].incVal(0); sendCheck = 1;}
+                        else{banks[bank][enc].incCC(0);}
+                    }
+                }
                 
-                Q3buff = 0;
-                Q3buff = CTRLCHANGE | (banks[bank][enc].CC << 8) | (banks[bank][enc].val << 16);
-                xQueueSend(Q3,&Q3buff,10);
-                vTaskResume(MIDI);
+                if(sendCheck == 1)
+                {
+                    sendCheck = 0;
+                    Q3buff = 0;
+                    Q3buff = CTRLCHANGE | (banks[bank][enc].CC << 8) | (banks[bank][enc].val << 16);
+                    xQueueSend(Q3,&Q3buff,10);
+                    vTaskResume(MIDI);
+                }
             }
             else if(com == 0b10)
             {

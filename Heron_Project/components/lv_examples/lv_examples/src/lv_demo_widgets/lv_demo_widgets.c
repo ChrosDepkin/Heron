@@ -23,6 +23,7 @@
 
 
 
+
 #if LV_USE_DEMO_WIDGETS
 
 /*********************
@@ -84,14 +85,6 @@ static const adc_bits_width_t width2 = ADC_WIDTH_BIT_12;
 static const adc_atten_t atten = ADC_ATTEN_DB_11;
 static const adc_unit_t unit = ADC_UNIT_1;
 
-
-/*******************
- *      QUEUE
- ******************/
-extern QueueHandle_t Q5;
-uint64_t Q5buff = 0;
-
-
 /*************
  *  STYLES
  ************/
@@ -105,6 +98,9 @@ static lv_style_t textBoxStyle;
 static lv_style_t textBoxStyle2;
 static lv_style_t arcTextStyle;
 static lv_style_t bgBoxStyle;
+static lv_style_t arc_line_indic_cc;
+static lv_style_t listBtnStyle;
+static lv_style_t listBtnStyle2;
 
 static uint32_t adc_reading2 = 0; 
 
@@ -141,23 +137,48 @@ lv_obj_t * slider2;
 lv_obj_t * listLeft;
 lv_obj_t * listRight;
 
-uint8_t rollerIndex = 0;
-extern uint8_t octave;
-uint8_t octaveCheck = 0;
+lv_obj_t * listLeftCont;
+lv_obj_t * listRightCont;
 
-uint8_t slider1Val = 0;
-uint8_t slider2Val = 0;
-uint8_t slider1Check = 0;
+uint8_t rollerIndex = 0;
+extern uint8_t octave;   //change
+uint8_t octaveCheck = 0;
+  
+uint8_t slider1Val = 0; //change
+uint8_t slider2Val = 0; //change
+uint8_t slider1Check = 0; 
 uint8_t slider2Check = 0;
 
-extern uint8_t arcValues[8];
+extern uint8_t arcValues[8]; //change
 uint8_t arcChecks[8];
+
+extern uint8_t arcCCVal[8];
+uint8_t arcCCChe[8];
+
+uint8_t arcBool[8];
+
+uint8_t currBtn = 0;
+
+lv_obj_t * listPreset1;
+lv_obj_t * listPreset2;
+lv_obj_t * listPreset3;
+lv_obj_t * listPreset4;
+lv_obj_t * listPreset5;
+lv_obj_t * listPreset6;
+lv_obj_t * listPreset7;
+lv_obj_t * listPreset8;
+
+lv_obj_t * listBtnSave;
+lv_obj_t * listBtnLoad;
+lv_obj_t * listBtnClear;
 
 LV_FONT_DECLARE(novamono_26);
 LV_FONT_DECLARE(novamono_28);
 LV_FONT_DECLARE(novamono_36);
 LV_FONT_DECLARE(novamono_48);
 LV_FONT_DECLARE(novamono_60);
+
+#define MY_USB_SYMBOL "\xEF\x8A\x87"
 
 
 
@@ -193,6 +214,15 @@ LV_FONT_DECLARE(novamono_60);
 #endif
 #ifndef LV_ATTRIBUTE_IMG_STATS
 #define LV_ATTRIBUTE_IMG_STATS
+#endif
+#ifndef LV_ATTRIBUTE_IMG_CLEAR
+#define LV_ATTRIBUTE_IMG_CLEAR
+#endif
+#ifndef LV_ATTRIBUTE_IMG_SAVE
+#define LV_ATTRIBUTE_IMG_SAVE
+#endif
+#ifndef LV_ATTRIBUTE_IMG_LOAD
+#define LV_ATTRIBUTE_IMG_LOAD
 #endif
 
 
@@ -498,7 +528,7 @@ const lv_img_dsc_t switch64 = {
 const LV_ATTRIBUTE_MEM_ALIGN LV_ATTRIBUTE_LARGE_CONST LV_ATTRIBUTE_IMG_SETTINGS55 uint8_t settings55_map[] = {
   0x0c, 0x0a, 0x0c, 0xff,   /*Color of index 0*/
   0xa4, 0xa5, 0xa4, 0xff,   /*Color of index 1*/
-  0xfa, 0xfb, 0xfa, 0xff,   /*Color of index 2*/
+  0xff, 0xff, 0xff, 0xff,   /*Color of index 2*/
   0x61, 0x61, 0x61, 0xff,   /*Color of index 3*/
 
   0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0x80, 
@@ -639,6 +669,130 @@ const lv_img_dsc_t stats = {
   .data = stats_map,
 };
 
+const LV_ATTRIBUTE_MEM_ALIGN LV_ATTRIBUTE_LARGE_CONST LV_ATTRIBUTE_IMG_CLEAR uint8_t clear_map[] = {
+  0x13, 0x12, 0x13, 0xff,   /*Color of index 0*/
+  0xa9, 0xa9, 0xa9, 0xff,   /*Color of index 1*/
+  0xff, 0xff, 0xff, 0xff,   /*Color of index 2*/
+  0x5d, 0x5d, 0x5d, 0xff,   /*Color of index 3*/
+
+  0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 
+  0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 
+  0xaa, 0xaa, 0x97, 0xd6, 0xaa, 0xaa, 
+  0xaa, 0xa9, 0x00, 0x00, 0x6a, 0xaa, 
+  0xaa, 0xac, 0x0f, 0xf0, 0x3a, 0xaa, 
+  0xaa, 0xb0, 0x6a, 0xa9, 0x0e, 0xaa, 
+  0xaa, 0xc1, 0xaa, 0xaa, 0x43, 0xaa, 
+  0xa9, 0x06, 0xaa, 0xaa, 0x90, 0x6a, 
+  0xab, 0x3a, 0x76, 0x9d, 0xac, 0xea, 
+  0xa8, 0x1a, 0x41, 0x41, 0xa4, 0x2a, 
+  0xa4, 0x2a, 0xb0, 0x0e, 0xa8, 0x1a, 
+  0xa4, 0xea, 0xac, 0x3a, 0xab, 0x1a, 
+  0xa4, 0x2a, 0x90, 0x06, 0xa8, 0x1a, 
+  0xa8, 0x2a, 0x43, 0xc1, 0xa8, 0x2a, 
+  0xab, 0x1a, 0x4e, 0xb1, 0xa4, 0xea, 
+  0xa9, 0x0a, 0x9a, 0xa6, 0xa0, 0x6a, 
+  0xaa, 0xce, 0xaa, 0xaa, 0xb3, 0xaa, 
+  0xaa, 0x43, 0x6a, 0xa9, 0xc1, 0xaa, 
+  0xaa, 0x90, 0x35, 0x5c, 0x06, 0xaa, 
+  0xaa, 0xa7, 0x00, 0x00, 0xda, 0xaa, 
+  0xaa, 0xaa, 0x7c, 0x3d, 0xaa, 0xaa, 
+  0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 
+  0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 
+  0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 
+};
+
+const lv_img_dsc_t clear = {
+  .header.always_zero = 0,
+  .header.w = 24,
+  .header.h = 24,
+  .data_size = 160,
+  .header.cf = LV_IMG_CF_INDEXED_2BIT,
+  .data = clear_map,
+};
+
+const LV_ATTRIBUTE_MEM_ALIGN LV_ATTRIBUTE_LARGE_CONST LV_ATTRIBUTE_IMG_LOAD uint8_t load_map[] = {
+  0x21, 0x21, 0x21, 0xff,   /*Color of index 0*/
+  0xaa, 0xab, 0xaa, 0xff,   /*Color of index 1*/
+  0x63, 0x62, 0x63, 0xff,   /*Color of index 2*/
+  0xff, 0xff, 0xff, 0xff,   /*Color of index 3*/
+
+  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 
+  0xff, 0xff, 0xfd, 0x7f, 0xff, 0xff, 
+  0xff, 0xff, 0xf4, 0x1f, 0xff, 0xff, 
+  0xff, 0xff, 0xd0, 0x07, 0xff, 0xff, 
+  0xff, 0xff, 0x40, 0x01, 0xff, 0xff, 
+  0xff, 0xff, 0x04, 0x10, 0xff, 0xff, 
+  0xff, 0xff, 0x7c, 0x3d, 0xff, 0xff, 
+  0xff, 0xff, 0xfc, 0x3f, 0xff, 0xff, 
+  0xff, 0x60, 0x1c, 0x34, 0x09, 0xff, 
+  0xfd, 0x00, 0x1c, 0x34, 0x00, 0x7f, 
+  0xfc, 0x1f, 0xfc, 0x3f, 0xf4, 0x3f, 
+  0xfc, 0xbf, 0xfc, 0x3f, 0xfe, 0x3f, 
+  0xfc, 0xbf, 0xfc, 0x3f, 0xfe, 0x3f, 
+  0xfc, 0xbf, 0xfc, 0x3f, 0xfe, 0x3f, 
+  0xfc, 0xbf, 0xfc, 0x3f, 0xfe, 0x3f, 
+  0xfc, 0xbf, 0xfd, 0x7f, 0xfe, 0x3f, 
+  0xfc, 0xbf, 0xff, 0xff, 0xfe, 0x3f, 
+  0xfc, 0xbf, 0xff, 0xff, 0xfe, 0x3f, 
+  0xfc, 0xbf, 0xff, 0xff, 0xfe, 0x3f, 
+  0xfe, 0x25, 0x55, 0x55, 0x58, 0xbf, 
+  0xff, 0x80, 0x00, 0x00, 0x02, 0xff, 
+  0xff, 0xd5, 0x55, 0x55, 0x57, 0xff, 
+  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 
+  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 
+};
+
+const lv_img_dsc_t load = {
+  .header.always_zero = 0,
+  .header.w = 24,
+  .header.h = 24,
+  .data_size = 160,
+  .header.cf = LV_IMG_CF_INDEXED_2BIT,
+  .data = load_map,
+};
+
+const LV_ATTRIBUTE_MEM_ALIGN LV_ATTRIBUTE_LARGE_CONST LV_ATTRIBUTE_IMG_SAVE uint8_t save_map[] = {
+  0x11, 0x0f, 0x11, 0xff,   /*Color of index 0*/
+  0x9f, 0x9f, 0x9f, 0xff,   /*Color of index 1*/
+  0xff, 0xff, 0xff, 0xff,   /*Color of index 2*/
+  0x56, 0x56, 0x56, 0xff,   /*Color of index 3*/
+
+  0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 
+  0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 
+  0xaa, 0x56, 0xaa, 0xaa, 0x96, 0xaa, 
+  0xab, 0x01, 0xaa, 0xbe, 0x43, 0xaa, 
+  0xab, 0x01, 0xaa, 0x82, 0x40, 0xea, 
+  0xab, 0x01, 0xaa, 0x82, 0x40, 0xea, 
+  0xab, 0x01, 0xaa, 0x82, 0x40, 0xea, 
+  0xab, 0x01, 0xaa, 0xbe, 0x40, 0xea, 
+  0xab, 0x03, 0x55, 0x55, 0x40, 0xea, 
+  0xab, 0x00, 0x00, 0x00, 0x00, 0xea, 
+  0xab, 0x35, 0x55, 0x55, 0x5c, 0xea, 
+  0xab, 0x1a, 0xaa, 0xaa, 0xa4, 0xea, 
+  0xab, 0x1a, 0xaa, 0xaa, 0xa4, 0xea, 
+  0xab, 0x1a, 0xaa, 0xaa, 0xa4, 0xea, 
+  0xab, 0x1a, 0xaa, 0xaa, 0xa4, 0xea, 
+  0xab, 0x1a, 0xaa, 0xaa, 0xa4, 0xea, 
+  0xab, 0x1a, 0xaa, 0xaa, 0xa4, 0xea, 
+  0xab, 0x1a, 0xaa, 0xaa, 0xa4, 0xea, 
+  0xab, 0x1a, 0xaa, 0xaa, 0xa4, 0xea, 
+  0xab, 0x3f, 0xff, 0xff, 0xfc, 0xea, 
+  0xa9, 0x00, 0x00, 0x00, 0x00, 0x6a, 
+  0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 
+  0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 
+  0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 
+};
+
+const lv_img_dsc_t save = {
+  .header.always_zero = 0,
+  .header.w = 24,
+  .header.h = 24,
+  .data_size = 160,
+  .header.cf = LV_IMG_CF_INDEXED_2BIT,
+  .data = save_map,
+};
+
+
 
 
 /**********************
@@ -708,14 +862,14 @@ static void event_handler4(lv_obj_t * obj, lv_event_t event)
 static void btn_bpm_e(lv_obj_t * obj, lv_event_t e)
   {
     if(e == LV_EVENT_CLICKED) {
-        BPM++;
+        //bpm++;
     }
 }
 
 static void btn_bank_pos_e(lv_obj_t * obj, lv_event_t e)
   {
     if(e == LV_EVENT_CLICKED) {
-      if (bank == 4){
+      /*if (bank == 4){
         bank = 1;
         }
       else{
@@ -732,7 +886,7 @@ static void btn_bank_pos_e(lv_obj_t * obj, lv_event_t e)
       }
       else{
         mode++;
-      }
+      }*/
       }
 }
 
@@ -791,14 +945,14 @@ static void rollerEH(lv_obj_t * obj, lv_event_t e){
 }
 
 static void btn_octave_e(lv_obj_t * obj, lv_event_t e){
-  if (e == LV_EVENT_CLICKED){
+ /* if (e == LV_EVENT_CLICKED){
     if (octave == 7){
       octave = 0;
     }
     else{
       octave ++;
     }
-  }
+  }*/
 }
 
 static void arc1_btn_e(lv_obj_t * obj, lv_event_t e){
@@ -836,6 +990,731 @@ static void arc1_btn_e(lv_obj_t * obj, lv_event_t e){
       slider2Val = 20;
     }
 
+  }
+}
+
+static void arc1_btn2_e(lv_obj_t * obj, lv_event_t e){
+  if (e == LV_EVENT_CLICKED){
+    if (arcCCVal[0] == 70){
+      arcCCVal[0] = 0;
+    }
+    else{
+      arcCCVal[0] = 70;
+    }
+
+    if (arcCCVal[1] == 20){
+      arcCCVal[1] = 0;
+    }
+    else{
+      arcCCVal[1] = 20;
+    }
+
+    if (arcCCVal[2] == 107){
+      arcCCVal[2] = 0;
+    }
+    else{
+      arcCCVal[2] = 107;
+    }
+    if (slider1Val == 80){
+      slider1Val = 0;
+    }
+    else{
+      slider1Val = 80;
+    }
+    if (slider2Val == 20){
+      slider2Val = 0;
+    }
+    else{
+      slider2Val = 20;
+    }
+
+  }
+}
+
+static void arc1_e(lv_obj_t * obj, lv_event_t e){
+  if (e == LV_EVENT_PRESSED){
+    if (arcBool[0] == 0){
+      arcBool[0] = 1;
+      static char buf[64];
+      lv_snprintf(buf, sizeof(buf), "%d", arcCCVal[0]);
+      const char * texts[] = {buf}; 
+
+      lv_arc_set_value(arc1, arcCCVal[0]);
+      lv_label_set_text(arcText[0], buf);
+      lv_obj_align(arcText[0], NULL, LV_ALIGN_CENTER, 0, 0);
+      lv_obj_reset_style_list(arc1, LV_ARC_PART_INDIC);
+      lv_obj_add_style(arc1, LV_ARC_PART_INDIC, &arc_line_indic_cc);
+    }
+    else{
+      arcBool[0] = 0;
+      static char buf[64];
+      lv_snprintf(buf, sizeof(buf), "%d", arcValues[0]);
+      const char * texts[] = {buf}; 
+
+      lv_arc_set_value(arc1, arcValues[0]);
+      lv_label_set_text(arcText[0], buf);
+      lv_obj_align(arcText[0], NULL, LV_ALIGN_CENTER, 0, 0);
+      lv_obj_reset_style_list(arc1, LV_ARC_PART_INDIC);
+      lv_obj_add_style(arc1, LV_ARC_PART_INDIC, &arc_line_indic);
+    }
+  }
+}
+
+static void arc2_e(lv_obj_t * obj, lv_event_t e){
+  if (e == LV_EVENT_PRESSED){
+    if (arcBool[1] == 0){
+      arcBool[1] = 1;
+      static char buf[64];
+      lv_snprintf(buf, sizeof(buf), "%d", arcCCVal[1]);
+      const char * texts[] = {buf}; 
+
+      lv_arc_set_value(arc2, arcCCVal[1]);
+      lv_label_set_text(arcText[1], buf);
+      lv_obj_align(arcText[1], NULL, LV_ALIGN_CENTER, 0, 0);
+      lv_obj_reset_style_list(arc2, LV_ARC_PART_INDIC);
+      lv_obj_add_style(arc2, LV_ARC_PART_INDIC, &arc_line_indic_cc);
+    }
+    else{
+      arcBool[1] = 0;
+      static char buf[64];
+      lv_snprintf(buf, sizeof(buf), "%d", arcValues[1]);
+      const char * texts[] = {buf}; 
+
+      lv_arc_set_value(arc2, arcValues[1]);
+      lv_label_set_text(arcText[1], buf);
+      lv_obj_align(arcText[1], NULL, LV_ALIGN_CENTER, 0, 0);
+      lv_obj_reset_style_list(arc2, LV_ARC_PART_INDIC);
+      lv_obj_add_style(arc2, LV_ARC_PART_INDIC, &arc_line_indic);
+    }
+  }
+}
+
+static void arc3_e(lv_obj_t * obj, lv_event_t e){
+  if (e == LV_EVENT_PRESSED){
+    if (arcBool[2] == 0){
+      arcBool[2] = 1;
+      static char buf[64];
+      lv_snprintf(buf, sizeof(buf), "%d", arcCCVal[2]);
+      const char * texts[] = {buf}; 
+
+      lv_arc_set_value(arc3, arcCCVal[2]);
+      lv_label_set_text(arcText[2], buf);
+      lv_obj_align(arcText[2], NULL, LV_ALIGN_CENTER, 0, 0);
+      lv_obj_reset_style_list(arc3, LV_ARC_PART_INDIC);
+      lv_obj_add_style(arc3, LV_ARC_PART_INDIC, &arc_line_indic_cc);
+    }
+    else{
+      arcBool[2] = 0;
+      static char buf[64];
+      lv_snprintf(buf, sizeof(buf), "%d", arcValues[2]);
+      const char * texts[] = {buf}; 
+
+      lv_arc_set_value(arc3, arcValues[2]);
+      lv_label_set_text(arcText[2], buf);
+      lv_obj_align(arcText[2], NULL, LV_ALIGN_CENTER, 0, 0);
+      lv_obj_reset_style_list(arc3, LV_ARC_PART_INDIC);
+      lv_obj_add_style(arc3, LV_ARC_PART_INDIC, &arc_line_indic);
+    }
+  }
+}
+
+static void arc4_e(lv_obj_t * obj, lv_event_t e){
+  if (e == LV_EVENT_PRESSED){
+    if (arcBool[3] == 0){
+      arcBool[3] = 1;
+      static char buf[64];
+      lv_snprintf(buf, sizeof(buf), "%d", arcCCVal[3]);
+      const char * texts[] = {buf}; 
+
+      lv_arc_set_value(arc4, arcCCVal[3]);
+      lv_label_set_text(arcText[3], buf);
+      lv_obj_align(arcText[3], NULL, LV_ALIGN_CENTER, 0, 0);
+      lv_obj_reset_style_list(arc4, LV_ARC_PART_INDIC);
+      lv_obj_add_style(arc4, LV_ARC_PART_INDIC, &arc_line_indic_cc);
+    }
+    else{
+      arcBool[3] = 0;
+      static char buf[64];
+      lv_snprintf(buf, sizeof(buf), "%d", arcValues[3]);
+      const char * texts[] = {buf}; 
+
+      lv_arc_set_value(arc4, arcValues[3]);
+      lv_label_set_text(arcText[3], buf);
+      lv_obj_align(arcText[3], NULL, LV_ALIGN_CENTER, 0, 0);
+      lv_obj_reset_style_list(arc4, LV_ARC_PART_INDIC);
+      lv_obj_add_style(arc4, LV_ARC_PART_INDIC, &arc_line_indic);
+    }
+  }
+}
+
+static void arc5_e(lv_obj_t * obj, lv_event_t e){
+  if (e == LV_EVENT_PRESSED){
+    if (arcBool[4] == 0){
+      arcBool[4] = 1;
+      static char buf[64];
+      lv_snprintf(buf, sizeof(buf), "%d", arcCCVal[4]);
+      const char * texts[] = {buf}; 
+
+      lv_arc_set_value(arc5, arcCCVal[4]);
+      lv_label_set_text(arcText[4], buf);
+      lv_obj_align(arcText[4], NULL, LV_ALIGN_CENTER, 0, 0);
+      lv_obj_reset_style_list(arc5, LV_ARC_PART_INDIC);
+      lv_obj_add_style(arc5, LV_ARC_PART_INDIC, &arc_line_indic_cc);
+    }
+    else{
+      arcBool[4] = 0;
+      static char buf[64];
+      lv_snprintf(buf, sizeof(buf), "%d", arcValues[4]);
+      const char * texts[] = {buf}; 
+
+      lv_arc_set_value(arc5, arcValues[4]);
+      lv_label_set_text(arcText[4], buf);
+      lv_obj_align(arcText[4], NULL, LV_ALIGN_CENTER, 0, 0);
+      lv_obj_reset_style_list(arc5, LV_ARC_PART_INDIC);
+      lv_obj_add_style(arc5, LV_ARC_PART_INDIC, &arc_line_indic);
+    }
+  }
+}
+
+static void arc6_e(lv_obj_t * obj, lv_event_t e){
+  if (e == LV_EVENT_PRESSED){
+    if (arcBool[5] == 0){
+      arcBool[5] = 1;
+      static char buf[64];
+      lv_snprintf(buf, sizeof(buf), "%d", arcCCVal[5]);
+      const char * texts[] = {buf}; 
+
+      lv_arc_set_value(arc6, arcCCVal[5]);
+      lv_label_set_text(arcText[5], buf);
+      lv_obj_align(arcText[5], NULL, LV_ALIGN_CENTER, 0, 0);
+      lv_obj_reset_style_list(arc6, LV_ARC_PART_INDIC);
+      lv_obj_add_style(arc6, LV_ARC_PART_INDIC, &arc_line_indic_cc);
+    }
+    else{
+      arcBool[5] = 0;
+      static char buf[64];
+      lv_snprintf(buf, sizeof(buf), "%d", arcValues[5]);
+      const char * texts[] = {buf}; 
+
+      lv_arc_set_value(arc6, arcValues[5]);
+      lv_label_set_text(arcText[5], buf);
+      lv_obj_align(arcText[5], NULL, LV_ALIGN_CENTER, 0, 0);
+      lv_obj_reset_style_list(arc6, LV_ARC_PART_INDIC);
+      lv_obj_add_style(arc6, LV_ARC_PART_INDIC, &arc_line_indic);
+    }
+  }
+}
+
+static void arc7_e(lv_obj_t * obj, lv_event_t e){
+  if (e == LV_EVENT_PRESSED){
+    if (arcBool[6] == 0){
+      arcBool[6] = 1;
+      static char buf[64];
+      lv_snprintf(buf, sizeof(buf), "%d", arcCCVal[6]);
+      const char * texts[] = {buf}; 
+
+      lv_arc_set_value(arc7, arcCCVal[6]);
+      lv_label_set_text(arcText[6], buf);
+      lv_obj_align(arcText[6], NULL, LV_ALIGN_CENTER, 0, 0);
+      lv_obj_reset_style_list(arc7, LV_ARC_PART_INDIC);
+      lv_obj_add_style(arc7, LV_ARC_PART_INDIC, &arc_line_indic_cc);
+    }
+    else{
+      arcBool[6] = 0;
+      static char buf[64];
+      lv_snprintf(buf, sizeof(buf), "%d", arcValues[6]);
+      const char * texts[] = {buf}; 
+
+      lv_arc_set_value(arc7, arcValues[6]);
+      lv_label_set_text(arcText[6], buf);
+      lv_obj_align(arcText[6], NULL, LV_ALIGN_CENTER, 0, 0);
+      lv_obj_reset_style_list(arc7, LV_ARC_PART_INDIC);
+      lv_obj_add_style(arc7, LV_ARC_PART_INDIC, &arc_line_indic);
+    }
+  }
+}
+
+static void arc8_e(lv_obj_t * obj, lv_event_t e){
+  if (e == LV_EVENT_PRESSED){
+    if (arcBool[7] == 0){
+      arcBool[7] = 1;
+      static char buf[64];
+      lv_snprintf(buf, sizeof(buf), "%d", arcCCVal[7]);
+      const char * texts[] = {buf}; 
+
+      lv_arc_set_value(arc8, arcCCVal[7]);
+      lv_label_set_text(arcText[7], buf);
+      lv_obj_align(arcText[7], NULL, LV_ALIGN_CENTER, 0, 0);
+      lv_obj_reset_style_list(arc8, LV_ARC_PART_INDIC);
+      lv_obj_add_style(arc8, LV_ARC_PART_INDIC, &arc_line_indic_cc);
+    }
+    else{
+      arcBool[7] = 0;
+      static char buf[64];
+      lv_snprintf(buf, sizeof(buf), "%d", arcValues[7]);
+      const char * texts[] = {buf}; 
+
+      lv_arc_set_value(arc8, arcValues[7]);
+      lv_label_set_text(arcText[7], buf);
+      lv_obj_align(arcText[7], NULL, LV_ALIGN_CENTER, 0, 0);
+      lv_obj_reset_style_list(arc8, LV_ARC_PART_INDIC);
+      lv_obj_add_style(arc8, LV_ARC_PART_INDIC, &arc_line_indic);
+    }
+  }
+}
+
+static void listPreset1_e(lv_obj_t * obj, lv_event_t e){
+  if(e == LV_EVENT_CLICKED){
+    printf("Event");
+        if(lv_btn_get_state(listPreset2) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset2, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset2, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset3) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset3, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset3, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset4) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset4, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset4, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset5) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset5, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset5, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset6) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset6, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset6, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset7) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset7, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset7, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset8) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset8, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset8, LV_BTN_STATE_RELEASED);
+    }
+    if(lv_btn_get_state(listPreset1) == LV_BTN_STATE_CHECKED_RELEASED){
+      currBtn = 1;
+    }
+  }
+}
+
+static void listPreset2_e(lv_obj_t * obj, lv_event_t e){
+  if(e == LV_EVENT_CLICKED){
+    printf("Event");
+        if(lv_btn_get_state(listPreset1) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset1, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset1, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset3) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset3, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset3, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset4) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset4, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset4, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset5) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset5, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset5, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset6) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset6, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset6, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset7) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset7, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset7, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset8) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset8, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset8, LV_BTN_STATE_RELEASED);
+    }
+    if(lv_btn_get_state(listPreset2) == LV_BTN_STATE_CHECKED_RELEASED){
+      currBtn = 2;
+    }
+  }
+}
+
+static void listPreset3_e(lv_obj_t * obj, lv_event_t e){
+  if(e == LV_EVENT_CLICKED){
+    printf("Event");
+        if(lv_btn_get_state(listPreset2) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset2, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset2, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset1) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset1, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset1, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset4) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset4, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset4, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset5) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset5, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset5, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset6) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset6, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset6, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset7) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset7, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset7, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset8) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset8, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset8, LV_BTN_STATE_RELEASED);
+    }
+    if(lv_btn_get_state(listPreset3) == LV_BTN_STATE_CHECKED_RELEASED){
+      currBtn = 3;
+    }
+  }
+}
+
+static void listPreset4_e(lv_obj_t * obj, lv_event_t e){
+  if(e == LV_EVENT_CLICKED){
+    printf("Event");
+        if(lv_btn_get_state(listPreset2) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset2, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset2, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset3) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset3, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset3, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset1) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset1, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset1, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset5) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset5, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset5, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset6) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset6, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset6, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset7) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset7, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset7, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset8) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset8, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset8, LV_BTN_STATE_RELEASED);
+    }
+    if(lv_btn_get_state(listPreset4) == LV_BTN_STATE_CHECKED_RELEASED){
+      currBtn = 4;
+    }
+  }
+}
+
+static void listPreset5_e(lv_obj_t * obj, lv_event_t e){
+  if(e == LV_EVENT_CLICKED){
+    printf("Event");
+        if(lv_btn_get_state(listPreset2) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset2, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset2, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset3) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset3, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset3, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset4) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset4, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset4, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset1) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset1, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset1, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset6) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset6, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset6, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset7) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset7, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset7, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset8) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset8, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset8, LV_BTN_STATE_RELEASED);
+    }
+    if(lv_btn_get_state(listPreset5) == LV_BTN_STATE_CHECKED_RELEASED){
+      currBtn = 5;
+    }
+  }
+}
+
+static void listPreset6_e(lv_obj_t * obj, lv_event_t e){
+  if(e == LV_EVENT_CLICKED){
+    printf("Event");
+        if(lv_btn_get_state(listPreset2) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset2, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset2, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset3) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset3, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset3, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset4) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset4, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset4, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset5) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset5, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset5, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset1) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset1, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset1, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset7) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset7, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset7, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset8) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset8, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset8, LV_BTN_STATE_RELEASED);
+    }
+    if(lv_btn_get_state(listPreset6) == LV_BTN_STATE_CHECKED_RELEASED){
+      currBtn = 6;
+    }
+  }
+}
+
+static void listPreset7_e(lv_obj_t * obj, lv_event_t e){
+  if(e == LV_EVENT_CLICKED){
+    printf("Event");
+        if(lv_btn_get_state(listPreset2) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset2, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset2, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset3) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset3, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset3, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset4) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset4, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset4, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset5) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset5, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset5, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset6) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset6, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset6, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset1) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset1, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset1, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset8) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset8, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset8, LV_BTN_STATE_RELEASED);
+    }
+    if(lv_btn_get_state(listPreset7) == LV_BTN_STATE_CHECKED_RELEASED){
+      currBtn = 7;
+    }
+  }
+}
+
+static void listPreset8_e(lv_obj_t * obj, lv_event_t e){
+  if(e == LV_EVENT_CLICKED){
+    printf("Event");
+        if(lv_btn_get_state(listPreset2) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset2, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset2, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset3) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset3, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset3, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset4) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset4, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset4, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset5) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset5, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset5, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset6) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset6, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset6, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset7) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset7, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset7, LV_BTN_STATE_RELEASED);
+    }
+        if(lv_btn_get_state(listPreset1) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset1, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset1, LV_BTN_STATE_RELEASED);
+    }
+    if(lv_btn_get_state(listPreset8) == LV_BTN_STATE_CHECKED_RELEASED){
+      currBtn = 8;
+    }
+  }
+}
+
+static void savePreset_e(lv_obj_t * obj, lv_event_t e){
+  switch(currBtn){
+    case 1:
+    if(lv_btn_get_state(listPreset1) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset1, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset1, LV_BTN_STATE_RELEASED);
+    }
+    break;
+    case 2:
+    if(lv_btn_get_state(listPreset2) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset2, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset2, LV_BTN_STATE_RELEASED);
+    }
+    break;
+    case 3:
+    if(lv_btn_get_state(listPreset3) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset3, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset3, LV_BTN_STATE_RELEASED);
+    }
+    break;
+    case 4:
+    if(lv_btn_get_state(listPreset4) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset4, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset4, LV_BTN_STATE_RELEASED);
+    }
+    break;
+    case 5:
+    if(lv_btn_get_state(listPreset5) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset5, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset5, LV_BTN_STATE_RELEASED);
+    }
+    break;
+    case 6:
+    if(lv_btn_get_state(listPreset6) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset6, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset6, LV_BTN_STATE_RELEASED);
+    }
+    break;
+    case 7:
+    if(lv_btn_get_state(listPreset7) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset7, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset7, LV_BTN_STATE_RELEASED);
+    }
+    break;
+    case 8:
+    if(lv_btn_get_state(listPreset8) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset8, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset8, LV_BTN_STATE_RELEASED);
+    }
+    break;
+  }
+}
+
+static void loadPreset_e(lv_obj_t * obj, lv_event_t e){
+  switch(currBtn){
+    case 1:
+    if(lv_btn_get_state(listPreset1) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset1, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset1, LV_BTN_STATE_RELEASED);
+    }
+    break;
+    case 2:
+    if(lv_btn_get_state(listPreset2) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset2, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset2, LV_BTN_STATE_RELEASED);
+    }
+    break;
+    case 3:
+    if(lv_btn_get_state(listPreset3) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset3, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset3, LV_BTN_STATE_RELEASED);
+    }
+    break;
+    case 4:
+    if(lv_btn_get_state(listPreset4) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset4, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset4, LV_BTN_STATE_RELEASED);
+    }
+    break;
+    case 5:
+    if(lv_btn_get_state(listPreset5) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset5, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset5, LV_BTN_STATE_RELEASED);
+    }
+    break;
+    case 6:
+    if(lv_btn_get_state(listPreset6) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset6, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset6, LV_BTN_STATE_RELEASED);
+    }
+    break;
+    case 7:
+    if(lv_btn_get_state(listPreset7) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset7, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset7, LV_BTN_STATE_RELEASED);
+    }
+    break;
+    case 8:
+    if(lv_btn_get_state(listPreset8) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset8, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset8, LV_BTN_STATE_RELEASED);
+    }
+    break;
+  }
+}
+
+static void clearPreset_e(lv_obj_t * obj, lv_event_t e){
+  switch(currBtn){
+    case 1:
+    if(lv_btn_get_state(listPreset1) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset1, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset1, LV_BTN_STATE_RELEASED);
+    }
+    break;
+    case 2:
+    if(lv_btn_get_state(listPreset2) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset2, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset2, LV_BTN_STATE_RELEASED);
+    }
+    break;
+    case 3:
+    if(lv_btn_get_state(listPreset3) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset3, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset3, LV_BTN_STATE_RELEASED);
+    }
+    break;
+    case 4:
+    if(lv_btn_get_state(listPreset4) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset4, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset4, LV_BTN_STATE_RELEASED);
+    }
+    break;
+    case 5:
+    if(lv_btn_get_state(listPreset5) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset5, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset5, LV_BTN_STATE_RELEASED);
+    }
+    break;
+    case 6:
+    if(lv_btn_get_state(listPreset6) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset6, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset6, LV_BTN_STATE_RELEASED);
+    }
+    break;
+    case 7:
+    if(lv_btn_get_state(listPreset7) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset7, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset7, LV_BTN_STATE_RELEASED);
+    }
+    break;
+    case 8:
+    if(lv_btn_get_state(listPreset8) == LV_BTN_STATE_CHECKED_RELEASED){
+      lv_btn_set_state(listPreset8, LV_BTN_STATE_PRESSED);
+      lv_btn_set_state(listPreset8, LV_BTN_STATE_RELEASED);
+    }
+    break;
   }
 }
 
@@ -974,10 +1853,13 @@ void lv_demo_widgets(void)
      *  ArcValues
      ****************/
 
-    /*for (int i = 1; i < 8; ++i){
-      arcValues[i] = 0;
+    for (int i = 1; i < 8; ++i){
+      //arcValues[i] = 0;
       arcChecks[i] = 0;
-    }*/
+      //arcCCVal[i] = 0;
+      arcChecks[i] = 0;
+      arcBool[i] = 0;
+    }
 
     /****************
      *  STYLE INIT
@@ -998,8 +1880,13 @@ void lv_demo_widgets(void)
 
     lv_style_init(&arc_line_indic);
     lv_style_set_line_width(&arc_line_indic, LV_STATE_DEFAULT, 4);
-    lv_style_set_line_color(&arc_line_indic, LV_STATE_DEFAULT, LV_COLOR_RED);
+    lv_style_set_line_color(&arc_line_indic, LV_STATE_DEFAULT, LV_COLOR_MAKE(0xFF, 0x25, 0x4e));
     lv_style_set_bg_opa(&arc_line_indic, LV_STATE_DEFAULT, LV_OPA_COVER);
+
+    lv_style_init(&arc_line_indic_cc);
+    lv_style_set_line_width(&arc_line_indic_cc, LV_STATE_DEFAULT, 4);
+    lv_style_set_line_color(&arc_line_indic_cc, LV_STATE_DEFAULT, LV_COLOR_MAKE(0x52, 0xd1, 0xdc));
+    lv_style_set_bg_opa(&arc_line_indic_cc, LV_STATE_DEFAULT, LV_OPA_COVER);
 
     lv_style_init(&arc_bg);
     lv_style_set_bg_opa(&arc_bg, LV_STATE_DEFAULT, LV_OPA_TRANSP);
@@ -1046,11 +1933,37 @@ void lv_demo_widgets(void)
 
     lv_style_init(&bgBoxStyle);
     lv_style_set_bg_opa(&bgBoxStyle, LV_STATE_DEFAULT, LV_OPA_COVER); 
-    lv_style_set_bg_color(&bgBoxStyle, LV_STATE_DEFAULT, LV_COLOR_MAKE(0xF5, 0xF3, 0xF2));
+    lv_style_set_bg_color(&bgBoxStyle, LV_STATE_DEFAULT, LV_COLOR_MAKE(0xFF, 0xFF, 0xFF));
     lv_style_set_radius(&bgBoxStyle, LV_STATE_DEFAULT, 3);
     lv_style_set_outline_width(&bgBoxStyle, LV_STATE_DEFAULT, 2);
     lv_style_set_outline_color(&bgBoxStyle, LV_STATE_DEFAULT, LV_COLOR_RED);
-    lv_style_set_outline_pad(&bgBoxStyle, LV_STATE_DEFAULT, 2);
+    lv_style_set_outline_pad(&bgBoxStyle, LV_STATE_DEFAULT, 0);
+
+    lv_style_init(&listBtnStyle);
+    lv_style_set_bg_opa(&listBtnStyle, LV_STATE_DEFAULT, LV_OPA_COVER); 
+    lv_style_set_bg_color(&listBtnStyle, LV_STATE_DEFAULT, LV_COLOR_MAKE(0xFF, 0xFF, 0xFF));
+    //lv_style_set_radius(&bgBoxStyle, LV_STATE_DEFAULT, 3);
+    //lv_style_set_outline_width(&bgBoxStyle, LV_STATE_DEFAULT, 2);
+    lv_style_set_outline_color(&listBtnStyle, LV_STATE_DEFAULT, LV_COLOR_RED);
+    //lv_style_set_outline_pad(&bgBoxStyle, LV_STATE_DEFAULT, 0);
+    lv_style_set_text_font(&listBtnStyle, LV_STATE_DEFAULT, &novamono_26);
+    lv_style_set_text_letter_space(&listBtnStyle, LV_STATE_DEFAULT, 5);
+    lv_style_set_bg_color(&listBtnStyle, LV_BTN_STATE_CHECKED_PRESSED, LV_COLOR_MAKE(0x6a, 0x25, 0x25));
+
+    lv_style_init(&listBtnStyle2);
+    lv_style_set_bg_opa(&listBtnStyle2, LV_STATE_DEFAULT, LV_OPA_COVER); 
+    lv_style_set_bg_color(&listBtnStyle2, LV_STATE_DEFAULT, LV_COLOR_MAKE(0xFF, 0xFF, 0xFF));
+    //lv_style_set_radius(&bgBoxStyle, LV_STATE_DEFAULT, 3);
+    //lv_style_set_outline_width(&bgBoxStyle, LV_STATE_DEFAULT, 2);
+    lv_style_set_outline_color(&listBtnStyle2, LV_STATE_DEFAULT, LV_COLOR_RED);
+    //lv_style_set_outline_pad(&bgBoxStyle, LV_STATE_DEFAULT, 0);
+    lv_style_set_text_font(&listBtnStyle2, LV_STATE_DEFAULT, &novamono_26);
+    lv_style_set_text_letter_space(&listBtnStyle2, LV_STATE_DEFAULT, 5);
+    lv_style_set_bg_color(&listBtnStyle2, LV_BTN_STATE_PRESSED, LV_COLOR_MAKE(0x6a, 0x25, 0x25));
+
+
+
+
 
 
 
@@ -1149,36 +2062,44 @@ static void octave_updater(lv_task_t * t)
 
 static void arc_anim(lv_task_t * t)
     {
-      /*Q5buff = 0;
-      xQueueReceive(Q5,(void *) &Q5buff,10);
-      arcValues[0] = Q5buff & 0xFF;
-      arcValues[1] = (Q5buff & 0xFF00) >> 8;
-      arcValues[2] = (Q5buff & 0xFF0000) >> 16;
-      arcValues[3] = (Q5buff & 0xFF000000) >> 24;
-      arcValues[4] = (Q5buff & 0xFF00000000) >> 32;
-      arcValues[5] = (Q5buff & 0xFF0000000000) >> 40;
-      arcValues[6] = (Q5buff & 0xFF000000000000) >> 48;
-      arcValues[7] = (Q5buff & 0xFF00000000000000) >> 56;*/
-      
+      //Arc1
+        if(arcBool[0] == 0){
+          if (arcValues[0] == arcChecks[0]){ //Value of Arc1
 
+          }
+          else{
+          static char buf[64];
+          lv_snprintf(buf, sizeof(buf), "%d", arcValues[0]);
+          const char * texts[] = {buf}; 
 
+          lv_arc_set_value(arc1, arcValues[0]);
+          lv_label_set_text(arcText[0], buf);
+          lv_obj_align(arcText[0], NULL, LV_ALIGN_CENTER, 0, 0);
+          //lv_label_set_align(arc1Text[0], LV_LABEL_ALIGN_CENTER);
 
-        if (arcValues[0] == arcChecks[0]){
+          arcChecks[0] = arcValues[0];
+          }
+        }else{
+          if (arcCCVal[0] == arcCCChe[0]){ //Value of Arc1
 
+          }
+          else{
+          static char buf[64];
+          lv_snprintf(buf, sizeof(buf), "%d", arcCCVal[0]);
+          const char * texts[] = {buf}; 
+
+          lv_arc_set_value(arc1, arcCCVal[0]);
+          lv_label_set_text(arcText[0], buf);
+          lv_obj_align(arcText[0], NULL, LV_ALIGN_CENTER, 0, 0);
+          //lv_label_set_align(arc1Text[0], LV_LABEL_ALIGN_CENTER);
+
+          arcCCChe[0] = arcCCVal[0];
+          }
         }
-        else{
-        static char buf[64];
-        lv_snprintf(buf, sizeof(buf), "%d", arcValues[0]);
-        const char * texts[] = {buf}; 
 
-        lv_arc_set_value(arc1, arcValues[0]);
-        lv_label_set_text(arcText[0], buf);
-        lv_obj_align(arcText[0], NULL, LV_ALIGN_CENTER, 0, 0);
-        //lv_label_set_align(arc1Text[0], LV_LABEL_ALIGN_CENTER);
 
-        arcChecks[0] = arcValues[0];
-        }
-
+      //Arc2
+      if(arcBool[1] == 0){
         if (arcValues[1] == arcChecks[1]){
 
         }
@@ -1193,7 +2114,27 @@ static void arc_anim(lv_task_t * t)
 
         arcChecks[1] = arcValues[1];
         }
+      }else{
+        if (arcCCVal[1] == arcCCChe[1]){ //Value of Arc1
+          }
+          else{
+          static char buf[64];
+          lv_snprintf(buf, sizeof(buf), "%d", arcCCVal[1]);
+          const char * texts[] = {buf}; 
 
+          lv_arc_set_value(arc2, arcCCVal[1]);
+          lv_label_set_text(arcText[1], buf);
+          lv_obj_align(arcText[1], NULL, LV_ALIGN_CENTER, 0, 0);
+          //lv_label_set_align(arc1Text[0], LV_LABEL_ALIGN_CENTER);
+
+          arcCCChe[1] = arcCCVal[1];
+          }
+      }
+
+
+        //Arc3
+
+      if(arcBool[2] == 0){
         if (arcValues[2] == arcChecks[2]){
 
         }
@@ -1207,9 +2148,27 @@ static void arc_anim(lv_task_t * t)
         lv_obj_align(arcText[2], NULL, LV_ALIGN_CENTER, 0, 0);
 
         arcChecks[2] = arcValues[2];
-
         }
+      }else{
+        if (arcCCVal[2] == arcCCChe[2]){ //Value of Arc1
+          }
+          else{
+          static char buf[64];
+          lv_snprintf(buf, sizeof(buf), "%d", arcCCVal[2]);
+          const char * texts[] = {buf}; 
 
+          lv_arc_set_value(arc3, arcCCVal[2]);
+          lv_label_set_text(arcText[2], buf);
+          lv_obj_align(arcText[2], NULL, LV_ALIGN_CENTER, 0, 0);
+          //lv_label_set_align(arc1Text[0], LV_LABEL_ALIGN_CENTER);
+
+          arcCCChe[2] = arcCCVal[2];
+          }
+      }
+
+        //Arc4
+
+      if(arcBool[3] == 0){
         if (arcValues[3] == arcChecks[3]){
 
         }
@@ -1224,12 +2183,30 @@ static void arc_anim(lv_task_t * t)
 
         arcChecks[3] = arcValues[3];
         }
+      }else{
+        if (arcCCVal[3] == arcCCChe[3]){ //Value of Arc1
+          }
+          else{
+          static char buf[64];
+          lv_snprintf(buf, sizeof(buf), "%d", arcCCVal[3]);
+          const char * texts[] = {buf}; 
 
+          lv_arc_set_value(arc4, arcCCVal[3]);
+          lv_label_set_text(arcText[3], buf);
+          lv_obj_align(arcText[3], NULL, LV_ALIGN_CENTER, 0, 0);
+          //lv_label_set_align(arc1Text[0], LV_LABEL_ALIGN_CENTER);
+
+          arcCCChe[3] = arcCCVal[3];
+          }
+      }
+
+        //Arc5
+
+      if(arcBool[4] == 0){
         if (arcValues[4] == arcChecks[4]){
 
         }
         else{
-
         static char buf[64];
         lv_snprintf(buf, sizeof(buf), "%d", arcValues[4]);
         const char * texts[] = {buf}; 
@@ -1240,7 +2217,27 @@ static void arc_anim(lv_task_t * t)
 
         arcChecks[4] = arcValues[4];
         }
+      }else{
+        if (arcCCVal[4] == arcCCChe[4]){ //Value of Arc1
+          }
+          else{
+          static char buf[64];
+          lv_snprintf(buf, sizeof(buf), "%d", arcCCVal[4]);
+          const char * texts[] = {buf}; 
 
+          lv_arc_set_value(arc5, arcCCVal[4]);
+          lv_label_set_text(arcText[4], buf);
+          lv_obj_align(arcText[4], NULL, LV_ALIGN_CENTER, 0, 0);
+          //lv_label_set_align(arc1Text[0], LV_LABEL_ALIGN_CENTER);
+
+          arcCCChe[4] = arcCCVal[4];
+          }
+      }
+
+
+      //Arc6
+
+      if(arcBool[5] == 0){
         if (arcValues[5] == arcChecks[5]){
 
         }
@@ -1255,7 +2252,27 @@ static void arc_anim(lv_task_t * t)
 
         arcChecks[5] = arcValues[5];
         }
+      }else{
+        if (arcCCVal[5] == arcCCChe[5]){ //Value of Arc1
+          }
+          else{
+          static char buf[64];
+          lv_snprintf(buf, sizeof(buf), "%d", arcCCVal[5]);
+          const char * texts[] = {buf}; 
 
+          lv_arc_set_value(arc6, arcCCVal[5]);
+          lv_label_set_text(arcText[5], buf);
+          lv_obj_align(arcText[5], NULL, LV_ALIGN_CENTER, 0, 0);
+          //lv_label_set_align(arc1Text[0], LV_LABEL_ALIGN_CENTER);
+
+          arcCCChe[5] = arcCCVal[5];
+          }
+      }
+
+
+      //Arc7
+
+      if(arcBool[6] == 0){
         if (arcValues[6] == arcChecks[6]){
 
         }
@@ -1270,12 +2287,30 @@ static void arc_anim(lv_task_t * t)
 
         arcChecks[6] = arcValues[6];
         }
+      }else{
+        if (arcCCVal[6] == arcCCChe[6]){ //Value of Arc1
+          }
+          else{
+          static char buf[64];
+          lv_snprintf(buf, sizeof(buf), "%d", arcCCVal[6]);
+          const char * texts[] = {buf}; 
 
+          lv_arc_set_value(arc7, arcCCVal[6]);
+          lv_label_set_text(arcText[6], buf);
+          lv_obj_align(arcText[6], NULL, LV_ALIGN_CENTER, 0, 0);
+          //lv_label_set_align(arc1Text[0], LV_LABEL_ALIGN_CENTER);
+
+          arcCCChe[6] = arcCCVal[6];
+          }
+      }
+
+      //Arc8
+
+      if(arcBool[7] == 0){
         if (arcValues[7] == arcChecks[7]){
 
         }
         else{
-
         static char buf[64];
         lv_snprintf(buf, sizeof(buf), "%d", arcValues[7]);
         const char * texts[] = {buf}; 
@@ -1286,6 +2321,23 @@ static void arc_anim(lv_task_t * t)
 
         arcChecks[7] = arcValues[7];
         }
+      }else{
+        if (arcCCVal[7] == arcCCChe[7]){ //Value of Arc1
+
+          }
+          else{
+          static char buf[64];
+          lv_snprintf(buf, sizeof(buf), "%d", arcCCVal[7]);
+          const char * texts[] = {buf}; 
+
+          lv_arc_set_value(arc8, arcCCVal[7]);
+          lv_label_set_text(arcText[7], buf);
+          lv_obj_align(arcText[7], NULL, LV_ALIGN_CENTER, 0, 0);
+          //lv_label_set_align(arc1Text[0], LV_LABEL_ALIGN_CENTER);
+
+          arcCCChe[7] = arcCCVal[7];
+          }
+      }
 
 
     }
@@ -1419,18 +2471,84 @@ static void visuals_create(lv_obj_t * parent)
 
 static void save_create(lv_obj_t * parent)
   {
-    lv_page_set_scrl_layout(parent, LV_LAYOUT_PRETTY_TOP);
+    lv_page_set_scrl_layout(parent, LV_LAYOUT_OFF);
     lv_disp_size_t disp_size = lv_disp_get_size_category(NULL);
 
+/*
+    listLeftCont = lv_obj_create(parent, NULL);
+    lv_obj_align(listLeftCont, NULL, LV_ALIGN_CENTER, -80,0);
+    listRightCont = lv_obj_create(parent, NULL);
+    lv_obj_align(listRightCont, NULL, LV_ALIGN_CENTER, -80,0);
+
+    lv_obj_add_style(listLeftCont, LV_STATE_DEFAULT, &bgBoxStyle);
+    lv_obj_add_style(listRightCont, LV_STATE_DEFAULT, &bgBoxStyle);
+*/
+
     listLeft = lv_list_create(parent, NULL);
-    lv_obj_align(listLeft, NULL, LV_ALIGN_CENTER,-80,0);
+
     lv_obj_add_style(listLeft, LV_STATE_DEFAULT, &bgBoxStyle);
-    lv_obj_set_size(listLeft, 160,100);
+    lv_obj_set_size(listLeft, 120,145);
+    lv_obj_align(listLeft, NULL, LV_ALIGN_CENTER, -80,0);    
+
+    listPreset1 = lv_list_add_btn(listLeft, NULL, "PRESET 1");
+    listPreset2 = lv_list_add_btn(listLeft, NULL, "PRESET 2");
+    listPreset3 = lv_list_add_btn(listLeft, NULL, "PRESET 3");
+    listPreset4 = lv_list_add_btn(listLeft, NULL, "PRESET 4");
+    listPreset5 = lv_list_add_btn(listLeft, NULL, "PRESET 5");
+    listPreset6 = lv_list_add_btn(listLeft, NULL, "PRESET 6");
+    listPreset7 = lv_list_add_btn(listLeft, NULL, "PRESET 7");
+    listPreset8 = lv_list_add_btn(listLeft, NULL, "PRESET 8");
 
     listRight = lv_list_create(parent, NULL);
-    lv_obj_align(listRight, NULL, LV_ALIGN_CENTER,80,0);
+
     lv_obj_add_style(listRight, LV_STATE_DEFAULT, &bgBoxStyle);
-    lv_obj_set_size(listRight, 160,100);
+    lv_obj_set_size(listRight, 120,145);
+    lv_obj_align(listRight, NULL, LV_ALIGN_CENTER, 80,0);
+
+    listBtnSave = lv_list_add_btn(listRight, &save, "SAVE");
+    listBtnLoad = lv_list_add_btn(listRight, &load, "LOAD");
+    listBtnClear = lv_list_add_btn(listRight, &clear, "CLEAR");
+
+    lv_obj_add_style(listPreset1, LV_STATE_DEFAULT, &listBtnStyle);
+    lv_obj_add_style(listPreset2, LV_STATE_DEFAULT, &listBtnStyle);
+    lv_obj_add_style(listPreset3, LV_STATE_DEFAULT, &listBtnStyle);
+    lv_obj_add_style(listPreset4, LV_STATE_DEFAULT, &listBtnStyle);
+    lv_obj_add_style(listPreset5, LV_STATE_DEFAULT, &listBtnStyle);
+    lv_obj_add_style(listPreset6, LV_STATE_DEFAULT, &listBtnStyle);
+    lv_obj_add_style(listPreset7, LV_STATE_DEFAULT, &listBtnStyle);
+    lv_obj_add_style(listPreset8, LV_STATE_DEFAULT, &listBtnStyle);
+
+    lv_obj_add_style(listBtnSave, LV_STATE_DEFAULT, &listBtnStyle2);
+    lv_obj_add_style(listBtnLoad, LV_STATE_DEFAULT, &listBtnStyle2);
+    lv_obj_add_style(listBtnClear, LV_STATE_DEFAULT, &listBtnStyle2);
+
+    lv_btn_set_checkable(listPreset1, true);
+    lv_btn_set_checkable(listPreset2, true);
+    lv_btn_set_checkable(listPreset3, true);
+    lv_btn_set_checkable(listPreset4, true);
+    lv_btn_set_checkable(listPreset5, true);
+    lv_btn_set_checkable(listPreset6, true);
+    lv_btn_set_checkable(listPreset7, true);
+    lv_btn_set_checkable(listPreset8, true);
+    //lv_btn_set_checkable(listBtnSave, true);
+    //lv_btn_set_checkable(listBtnLoad, true);
+    //lv_btn_set_checkable(listBtnClear, true);
+
+    lv_obj_set_event_cb(listPreset1, listPreset1_e); 
+    lv_obj_set_event_cb(listPreset2, listPreset2_e); 
+    lv_obj_set_event_cb(listPreset3, listPreset3_e); 
+    lv_obj_set_event_cb(listPreset4, listPreset4_e); 
+    lv_obj_set_event_cb(listPreset5, listPreset5_e); 
+    lv_obj_set_event_cb(listPreset6, listPreset6_e); 
+    lv_obj_set_event_cb(listPreset7, listPreset7_e); 
+    lv_obj_set_event_cb(listPreset8, listPreset8_e); 
+
+    lv_obj_set_event_cb(listBtnSave, savePreset_e); 
+    lv_obj_set_event_cb(listBtnLoad, loadPreset_e); 
+    lv_obj_set_event_cb(listBtnClear, clearPreset_e); 
+
+
+
   }
 
 static void controls_create(lv_obj_t * parent)
@@ -1470,6 +2588,9 @@ static void controls_create(lv_obj_t * parent)
     lv_label_set_align(arcText[0], LV_LABEL_ALIGN_CENTER);
     //lv_label_set_long_mode(arc1Text[0], LV_LABEL_LONG_BREAK);
 
+    lv_obj_set_event_cb(arc1, arc1_e); 
+
+
     // ARC2
     arc2 = lv_arc_create(parent, NULL);
     lv_obj_set_drag_parent(arc2, false);
@@ -1493,6 +2614,9 @@ static void controls_create(lv_obj_t * parent)
     lv_label_set_align(arcText[1], LV_LABEL_ALIGN_CENTER);
     //lv_label_set_long_mode(arc1Text[0], LV_LABEL_LONG_BREAK);
 
+        lv_obj_set_event_cb(arc2, arc2_e); 
+
+
     // ARC3
     arc3 = lv_arc_create(parent, NULL);
     lv_obj_set_drag_parent(arc3, false);
@@ -1514,6 +2638,9 @@ static void controls_create(lv_obj_t * parent)
     lv_obj_add_style(arcText[2], LV_STATE_DEFAULT, &arcTextStyle);
     lv_label_set_align(arcText[2], LV_LABEL_ALIGN_CENTER);
     //lv_label_set_long_mode(arc1Text[0], LV_LABEL_LONG_BREAK);
+
+    lv_obj_set_event_cb(arc3, arc3_e); 
+
 
     // ARC4
     arc4 = lv_arc_create(parent, NULL);
@@ -1537,6 +2664,8 @@ static void controls_create(lv_obj_t * parent)
     lv_label_set_align(arcText[3], LV_LABEL_ALIGN_CENTER);
     //lv_label_set_long_mode(arc1Text[0], LV_LABEL_LONG_BREAK);
 
+    lv_obj_set_event_cb(arc4, arc4_e); 
+
     //Row1 *******
     // ARC5
     arc5 = lv_arc_create(parent, NULL);
@@ -1559,6 +2688,8 @@ static void controls_create(lv_obj_t * parent)
     lv_obj_add_style(arcText[4], LV_STATE_DEFAULT, &arcTextStyle);
     lv_label_set_align(arcText[4], LV_LABEL_ALIGN_CENTER);
 
+    lv_obj_set_event_cb(arc5, arc5_e); 
+
     // ARC6
     arc6 = lv_arc_create(parent, NULL);
     lv_obj_set_drag_parent(arc6, false);
@@ -1579,6 +2710,8 @@ static void controls_create(lv_obj_t * parent)
     lv_obj_set_width(arcText[5], 50);
     lv_obj_add_style(arcText[5], LV_STATE_DEFAULT, &arcTextStyle);
     lv_label_set_align(arcText[5], LV_LABEL_ALIGN_CENTER);
+
+    lv_obj_set_event_cb(arc6, arc6_e); 
 
     // ARC7
     arc7 = lv_arc_create(parent, NULL);
@@ -1601,6 +2734,8 @@ static void controls_create(lv_obj_t * parent)
     lv_obj_add_style(arcText[6], LV_STATE_DEFAULT, &arcTextStyle);
     lv_label_set_align(arcText[6], LV_LABEL_ALIGN_CENTER);
 
+    lv_obj_set_event_cb(arc7, arc7_e); 
+
     // ARC8
     arc8 = lv_arc_create(parent, NULL);
     lv_obj_set_drag_parent(arc8, false);
@@ -1622,11 +2757,19 @@ static void controls_create(lv_obj_t * parent)
     lv_obj_add_style(arcText[7], LV_STATE_DEFAULT, &arcTextStyle);
     lv_label_set_align(arcText[7], LV_LABEL_ALIGN_CENTER);
 
+    lv_obj_set_event_cb(arc8, arc8_e); 
+
     //Button for testing
     lv_obj_t * arc1_btn = lv_btn_create(parent, NULL);     //Add a button the current screen
     lv_obj_set_pos(arc1_btn, 20, 130);                            //Set its position
     lv_obj_set_size(arc1_btn, 80, 50);                          //Set its size
     lv_obj_set_event_cb(arc1_btn, arc1_btn_e); 
+
+    //Button for testing CC
+    lv_obj_t * arc1_btn2 = lv_btn_create(parent, NULL);     //Add a button the current screen
+    lv_obj_set_pos(arc1_btn2, 100, 130);                            //Set its position
+    lv_obj_set_size(arc1_btn2, 80, 50);                          //Set its size
+    lv_obj_set_event_cb(arc1_btn2, arc1_btn2_e); 
 
     //SLIDER 1
     slider1 = lv_bar_create(parent, NULL);
@@ -1652,7 +2795,7 @@ static void controls_create(lv_obj_t * parent)
 
 static void selectors_create(lv_obj_t * parent)
   {
-    lv_page_set_scrl_layout(parent, LV_LAYOUT_PRETTY_MID);
+    lv_page_set_scrl_layout(parent, LV_LAYOUT_OFF);
 
     lv_disp_size_t disp_size = lv_disp_get_size_category(NULL);
     lv_coord_t grid_h = lv_page_get_height_grid(parent, 1, 1);

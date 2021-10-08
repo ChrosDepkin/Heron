@@ -30,6 +30,7 @@ class axoVar
     uint8_t CC = 0; // What CC number are you controlling?
     bool type = 0; // Unipolar/Bipolar on axo? Uni 0, Bi 1
     void incVal(bool direction);
+    void incCC(bool direction);
 
 };
 
