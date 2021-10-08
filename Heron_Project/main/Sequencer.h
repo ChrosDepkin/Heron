@@ -31,11 +31,11 @@ extern TaskHandle_t MIDI;
 extern QueueHandle_t Q3;
 extern uint8_t trackLen;
 
-class track
+class TrackClass
 {
     public:
     bool active; // Whether track is active
-    uint8_t bank;  // Which bank is this track on?
+    uint8_t tB;  // Which track bank is this track on?
     bool topBot; // What position in the bank (top or bottom physical row)
     uint8_t length = 15; // User configurable track length (up to 16 steps for now, length should be -1)
     uint8_t type; // Type of MIDI message triggered by a step

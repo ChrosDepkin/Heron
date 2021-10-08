@@ -10914,10 +10914,7 @@
                                 "help": "The timeout of the watchdog, in miliseconds. Make this higher than the FreeRTOS tick rate.",
                                 "id": "ESP_INT_WDT_TIMEOUT_MS",
                                 "name": "ESP_INT_WDT_TIMEOUT_MS",
-                                "range": [
-                                    10,
-                                    10000
-                                ],
+                                "range": null,
                                 "title": "Interrupt watchdog timeout (ms)",
                                 "type": "int"
                             },
@@ -10958,10 +10955,7 @@
                                 "help": "Timeout period configuration for the Task Watchdog Timer in seconds.\nThis is also configurable at run time (see Task Watchdog Timer API Reference)",
                                 "id": "ESP_TASK_WDT_TIMEOUT_S",
                                 "name": "ESP_TASK_WDT_TIMEOUT_S",
-                                "range": [
-                                    1,
-                                    60
-                                ],
+                                "range": null,
                                 "title": "Task Watchdog timeout period (seconds)",
                                 "type": "int"
                             },
@@ -23690,10 +23684,7 @@
                                         "help": "Configure the display MISO pin here.",
                                         "id": "LV_DISP_SPI_MISO",
                                         "name": "LV_DISP_SPI_MISO",
-                                        "range": [
-                                            0,
-                                            39
-                                        ],
+                                        "range": null,
                                         "title": "GPIO for MISO (Master In Slave Out)",
                                         "type": "int"
                                     },
@@ -23703,10 +23694,7 @@
                                         "help": "The time required between SCLK and MISO being valid, including the possible clock\ndelay from processor to display. Leave at 0 unless you know you need a delay.",
                                         "id": "LV_DISP_SPI_INPUT_DELAY_NS",
                                         "name": "LV_DISP_SPI_INPUT_DELAY_NS",
-                                        "range": [
-                                            0,
-                                            2147483647
-                                        ],
+                                        "range": null,
                                         "title": "MISO Input Delay (ns)",
                                         "type": "int"
                                     }

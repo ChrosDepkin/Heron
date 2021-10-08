@@ -15,6 +15,12 @@
 #include "esp_adc_cal.h"
 #include <math.h>
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/portmacro.h"
+#include "esp_freertos_hooks.h"
+#include "freertos/semphr.h"
+
 
 
 #if LV_USE_DEMO_WIDGETS
@@ -39,7 +45,7 @@ static void slider_event_cb(lv_obj_t * slider, lv_event_t e);
 static void ta_event_cb(lv_obj_t * ta, lv_event_t e);
 static void kb_event_cb(lv_obj_t * ta, lv_event_t e);
 static void bar_anim(lv_task_t * t);
-static void arc_anim(lv_obj_t * arc, lv_anim_value_t value);
+//static void arc_anim(lv_obj_t * arc, lv_anim_value_t value);
 static void linemeter_anim(lv_obj_t * linemeter, lv_anim_value_t value);
 static void gauge_anim(lv_obj_t * gauge, lv_anim_value_t value);
 static void table_event_cb(lv_obj_t * table, lv_event_t e);
@@ -55,7 +61,7 @@ static void tab_content_anim_create(lv_obj_t * parent);
 static void tab_changer_task_cb(lv_task_t * task);
 #endif
 
-#define DEFAULT_VREF    5000        //Use adc2_vref_to_gpio() to obtain a better estimate
+#define DEFAULT_VREF    1500        //Use adc2_vref_to_gpio() to obtain a better estimate
 #define NO_OF_SAMPLES   16          //Multisampling
 
 /**********************
@@ -71,39 +77,87 @@ static lv_obj_t * kb;
 
 
 static esp_adc_cal_characteristics_t *adc_chars2;
+static const adc_channel_t channel1 = ADC_CHANNEL_4;
 static const adc_channel_t channel2 = ADC_CHANNEL_6;
+static const adc_channel_t channel3 = ADC_CHANNEL_7;
 static const adc_bits_width_t width2 = ADC_WIDTH_BIT_12;
 static const adc_atten_t atten = ADC_ATTEN_DB_11;
 static const adc_unit_t unit = ADC_UNIT_1;
+
+
+/*******************
+ *      QUEUE
+ ******************/
+extern QueueHandle_t Q5;
+uint64_t Q5buff = 0;
+
 
 /*************
  *  STYLES
  ************/
 static lv_style_t style_box;
 static lv_style_t arc_line;
+static lv_style_t arc_line_indic;
 static lv_style_t arc_bg;
-static lv_style_t slider_bg;
 static lv_style_t slider_line;
-
+static lv_style_t slider_line1;
+static lv_style_t textBoxStyle;
+static lv_style_t textBoxStyle2;
+static lv_style_t arcTextStyle;
+static lv_style_t bgBoxStyle;
 
 static uint32_t adc_reading2 = 0; 
 
 static uint32_t xVal = 0;
 
 extern uint8_t BPM;
+extern uint8_t bank;
+extern uint8_t mode;
+extern uint8_t track;
 
 char bpm_s[5];
 
 lv_obj_t * bpm_label[1];
-
-lv_obj_t * mode_label[4];
-
-extern uint8_t bank;
 lv_obj_t * bank_label[1];
+lv_obj_t * mode_label[4];
+lv_obj_t * track_label[1];
+lv_obj_t * arcText[8];
 
+lv_obj_t * arc_label[8];
+
+lv_obj_t * roller;
+lv_obj_t * arc1;
+lv_obj_t * arc2;
+lv_obj_t * arc3;
+lv_obj_t * arc4;
+lv_obj_t * arc5;
+lv_obj_t * arc6;
+lv_obj_t * arc7;
+lv_obj_t * arc8;
+
+lv_obj_t * slider1;
+lv_obj_t * slider2;
+
+lv_obj_t * listLeft;
+lv_obj_t * listRight;
+
+uint8_t rollerIndex = 0;
+extern uint8_t octave;
+uint8_t octaveCheck = 0;
+
+uint8_t slider1Val = 0;
+uint8_t slider2Val = 0;
+uint8_t slider1Check = 0;
+uint8_t slider2Check = 0;
+
+uint8_t arcValues[8];
+uint8_t arcChecks[8];
+
+LV_FONT_DECLARE(novamono_26);
 LV_FONT_DECLARE(novamono_28);
 LV_FONT_DECLARE(novamono_36);
 LV_FONT_DECLARE(novamono_48);
+LV_FONT_DECLARE(novamono_60);
 
 
 
@@ -116,8 +170,6 @@ LV_FONT_DECLARE(novamono_48);
 #else
 #include "lvgl/lvgl.h"
 #endif
-
-
 
 
 #ifndef LV_ATTRIBUTE_MEM_ALIGN
@@ -594,7 +646,7 @@ const lv_img_dsc_t stats = {
  **********************/
 
 static void event_handler0(lv_obj_t * obj, lv_event_t event)
-{
+  {
     if(event == LV_EVENT_CLICKED) {
         lv_tabview_set_tab_act(tv, 0, LV_ANIM_OFF);
         printf("Hi");
@@ -606,7 +658,7 @@ static void event_handler0(lv_obj_t * obj, lv_event_t event)
 }
 
 static void event_handler1(lv_obj_t * obj, lv_event_t event)
-{
+  {
     if(event == LV_EVENT_CLICKED) {
         lv_tabview_set_tab_act(tv, 1, LV_ANIM_OFF);
         printf("Hi");
@@ -618,7 +670,7 @@ static void event_handler1(lv_obj_t * obj, lv_event_t event)
 }
 
 static void event_handler2(lv_obj_t * obj, lv_event_t event)
-{
+  {
     if(event == LV_EVENT_CLICKED) {
         lv_tabview_set_tab_act(tv, 2, LV_ANIM_OFF);
         printf("Hi");
@@ -630,7 +682,7 @@ static void event_handler2(lv_obj_t * obj, lv_event_t event)
 }
 
 static void event_handler3(lv_obj_t * obj, lv_event_t event)
-{
+  {
     if(event == LV_EVENT_CLICKED) {
         lv_tabview_set_tab_act(tv, 3, LV_ANIM_OFF);
         printf("Hi");
@@ -642,7 +694,7 @@ static void event_handler3(lv_obj_t * obj, lv_event_t event)
 }
 
 static void event_handler4(lv_obj_t * obj, lv_event_t event)
-{
+  {
     if(event == LV_EVENT_CLICKED) {
         lv_tabview_set_tab_act(tv, 4, LV_ANIM_OFF);
         printf("Hi");
@@ -654,33 +706,137 @@ static void event_handler4(lv_obj_t * obj, lv_event_t event)
 }
 
 static void btn_bpm_e(lv_obj_t * obj, lv_event_t e)
-{
+  {
     if(e == LV_EVENT_CLICKED) {
-        
+        BPM++;
     }
 }
+
 static void btn_bank_pos_e(lv_obj_t * obj, lv_event_t e)
-{
+  {
     if(e == LV_EVENT_CLICKED) {
       if (bank == 4){
-        
+        bank = 1;
         }
       else{
-        
+        bank++;
         }
+      if (track == 4){
+        track = 1;
+      }
+      else{
+        track++;
+      }
+      if (mode == 5){
+        mode = 1;
+      }
+      else{
+        mode++;
+      }
       }
 }
 
 static void btn_bank_neg_e(lv_obj_t * obj, lv_event_t e)
-{
+  {
     if(e == LV_EVENT_CLICKED) {
         if (bank == 1){
-            
+            bank = 4;
         }else{
-               
+            bank--;   
+        }
+        if (track == 1){
+            track = 4;
+        }else{
+            track--;   
+        }
+        if (mode == 1){
+            mode = 5;
+        }else{
+            mode--;   
         }
 
     }
+}
+
+static void rollerEH(lv_obj_t * obj, lv_event_t e){
+  if (e == LV_EVENT_VALUE_CHANGED){
+    rollerIndex = lv_roller_get_selected(roller);
+    if (rollerIndex == 0){
+      octave = 0;
+    }
+        if (rollerIndex == 1){
+      octave = 1;
+    }
+        if (rollerIndex == 2){
+      octave = 2;
+    }
+        if (rollerIndex == 3){
+      octave = 3;
+    }
+        if (rollerIndex == 4){
+      octave = 4;
+    }
+        if (rollerIndex == 5){
+      octave = 5;
+    }
+        if (rollerIndex == 6){
+      octave = 6;
+    }
+        if (rollerIndex == 7){
+      octave = 7;
+    }
+    printf("Change Oct: %d", octave);
+    printf("OctCheck: %d", octaveCheck);
+  }
+}
+
+static void btn_octave_e(lv_obj_t * obj, lv_event_t e){
+  if (e == LV_EVENT_CLICKED){
+    if (octave == 7){
+      octave = 0;
+    }
+    else{
+      octave ++;
+    }
+  }
+}
+
+static void arc1_btn_e(lv_obj_t * obj, lv_event_t e){
+  if (e == LV_EVENT_CLICKED){
+    if (arcValues[0] == 110){
+      arcValues[0] = 0;
+    }
+    else{
+      arcValues[0] = 110;
+    }
+
+    if (arcValues[1] == 90){
+      arcValues[1] = 0;
+    }
+    else{
+      arcValues[1] = 90;
+    }
+
+    if (arcValues[2] == 127){
+      arcValues[2] = 0;
+    }
+    else{
+      arcValues[2] = 127;
+    }
+    if (slider1Val == 80){
+      slider1Val = 0;
+    }
+    else{
+      slider1Val = 80;
+    }
+    if (slider2Val == 20){
+      slider2Val = 0;
+    }
+    else{
+      slider2Val = 20;
+    }
+
+  }
 }
 
 /**********************
@@ -688,14 +844,13 @@ static void btn_bank_neg_e(lv_obj_t * obj, lv_event_t e)
  **********************/
 
 void lv_demo_widgets(void)
-{
+  {
   static lv_style_t bgStyle;
   lv_style_init(&bgStyle);
-  lv_style_set_bg_color(&bgStyle, LV_STATE_DEFAULT, lv_color_hex(0xFF00FF));
-
-    tv = lv_tabview_create(lv_scr_act(), NULL);
-    lv_obj_add_style(tv, LV_PAGE_PART_BG, &bgStyle);
-#if LV_USE_THEME_MATERIAL
+  lv_style_set_bg_color(&bgStyle, LV_STATE_DEFAULT, lv_color_hex(0xF2EFEA));
+  tv = lv_tabview_create(lv_scr_act(), NULL);
+  lv_obj_add_style(tv, LV_PAGE_PART_BG, &bgStyle);
+  #if LV_USE_THEME_MATERIAL
     if(LV_THEME_DEFAULT_INIT == lv_theme_material_init) {
         lv_disp_size_t disp_size = lv_disp_get_size_category(NULL);
         if(disp_size >= LV_DISP_SIZE_MEDIUM) {
@@ -710,7 +865,7 @@ void lv_demo_widgets(void)
             lv_obj_set_style_local_value_ofs_x(sw, LV_SWITCH_PART_BG, LV_STATE_DEFAULT, LV_DPI/35);
         }
     }
-#endif
+  #endif
 
   
 
@@ -750,7 +905,7 @@ void lv_demo_widgets(void)
     //lv_style_set_image_recolor(&style, LV_STATE_PRESSED, LV_COLOR_BLACK);
     //lv_style_set_text_color(&style, LV_STATE_DEFAULT, LV_COLOR_WHITE);
 
-//Button1
+  //Button1
     lv_imgbtn_set_src(but1, LV_BTN_STATE_RELEASED, &stats);
     lv_imgbtn_set_src(but1, LV_BTN_STATE_PRESSED, &stats);
     lv_imgbtn_set_src(but1, LV_BTN_STATE_DISABLED, &stats);
@@ -763,7 +918,7 @@ void lv_demo_widgets(void)
     lv_obj_set_event_cb(but1, event_handler0);    /*Button event*/
 
 
-//Button2
+  //Button2
     lv_imgbtn_set_src(but2, LV_BTN_STATE_RELEASED, &sliders55);
     lv_imgbtn_set_src(but2, LV_BTN_STATE_PRESSED, &sliders55);
     lv_imgbtn_set_src(but2, LV_BTN_STATE_DISABLED, &sliders55);
@@ -776,7 +931,7 @@ void lv_demo_widgets(void)
     lv_obj_set_event_cb(but2, event_handler1);    /*Button event*/
 
 
-//Button3
+  //Button3
     lv_imgbtn_set_src(but3, LV_BTN_STATE_RELEASED, &presets55);
     lv_imgbtn_set_src(but3, LV_BTN_STATE_PRESSED, &presets55);
     lv_imgbtn_set_src(but3, LV_BTN_STATE_DISABLED, &presets55);
@@ -789,7 +944,7 @@ void lv_demo_widgets(void)
     lv_obj_set_event_cb(but3, event_handler2);    /*Button event*/
 
 
-//Button4
+  //Button4
     lv_imgbtn_set_src(but4, LV_BTN_STATE_RELEASED, &feedback55);
     lv_imgbtn_set_src(but4, LV_BTN_STATE_PRESSED, &feedback55);
     lv_imgbtn_set_src(but4, LV_BTN_STATE_DISABLED, &feedback55);
@@ -802,7 +957,7 @@ void lv_demo_widgets(void)
     lv_obj_set_event_cb(but4, event_handler3);    /*Button event*/
 
 
-//Button5
+  //Button5
     lv_imgbtn_set_src(but5, LV_BTN_STATE_RELEASED, &settings55);
     lv_imgbtn_set_src(but5, LV_BTN_STATE_PRESSED, &settings55);
     lv_imgbtn_set_src(but5, LV_BTN_STATE_DISABLED, &settings55);
@@ -816,6 +971,15 @@ void lv_demo_widgets(void)
     lv_obj_set_size(but5,65,55);
 
     /****************
+     *  ArcValues
+     ****************/
+
+    for (int i = 1; i < 8; ++i){
+      arcValues[i] = 0;
+      arcChecks[i] = 0;
+    }
+
+    /****************
      *  STYLE INIT
      ****************/
     lv_style_init(&style_box);
@@ -826,14 +990,21 @@ void lv_demo_widgets(void)
     lv_style_init(&arc_line);
     lv_style_set_line_width(&arc_line, LV_STATE_DEFAULT, 4);
     lv_style_set_line_color(&arc_line, LV_STATE_DEFAULT, LV_COLOR_BLACK);
+    lv_style_set_bg_opa(&arc_line,LV_STATE_DEFAULT, LV_OPA_TRANSP);
+    lv_style_set_bg_color(&arc_line,LV_STATE_DEFAULT, LV_COLOR_BLACK);
+    lv_style_set_text_color(&arc_line,LV_STATE_DEFAULT, LV_COLOR_BLACK);
+    //lv_style_set_border_color(&arc_line,LV_STATE_DEFAULT, LV_COLOR_BLACK);
+    lv_style_set_border_width(&arc_line, LV_STATE_DEFAULT, 0);
+
+    lv_style_init(&arc_line_indic);
+    lv_style_set_line_width(&arc_line_indic, LV_STATE_DEFAULT, 4);
+    lv_style_set_line_color(&arc_line_indic, LV_STATE_DEFAULT, LV_COLOR_RED);
+    lv_style_set_bg_opa(&arc_line_indic, LV_STATE_DEFAULT, LV_OPA_COVER);
 
     lv_style_init(&arc_bg);
     lv_style_set_bg_opa(&arc_bg, LV_STATE_DEFAULT, LV_OPA_TRANSP);
     lv_style_set_border_width(&arc_bg, LV_STATE_DEFAULT, 0);
-
-    lv_style_init(&slider_bg);
-    lv_style_set_bg_opa(&slider_bg, LV_STATE_DEFAULT, LV_OPA_TRANSP);
-    lv_style_set_border_width(&slider_bg, LV_STATE_DEFAULT, 0);
+    lv_style_set_line_width(&arc_bg, LV_STATE_DEFAULT, 4);
 
     lv_style_init(&slider_line);
     lv_style_set_line_width(&slider_line, LV_STATE_DEFAULT, 6);
@@ -842,6 +1013,44 @@ void lv_demo_widgets(void)
     lv_style_set_bg_color(&slider_line,LV_STATE_DEFAULT, LV_COLOR_BLACK);
     lv_style_set_text_color(&slider_line,LV_STATE_DEFAULT, LV_COLOR_BLACK);
     lv_style_set_border_color(&slider_line,LV_STATE_DEFAULT, LV_COLOR_BLACK);
+
+    lv_style_init(&slider_line1);
+    lv_style_set_line_width(&slider_line1, LV_STATE_DEFAULT, 6);
+    lv_style_set_line_color(&slider_line1, LV_STATE_DEFAULT, LV_COLOR_RED);
+    lv_style_set_bg_opa(&slider_line1,LV_STATE_DEFAULT, LV_OPA_COVER);
+    lv_style_set_bg_color(&slider_line1,LV_STATE_DEFAULT, LV_COLOR_RED);
+    lv_style_set_text_color(&slider_line1,LV_STATE_DEFAULT, LV_COLOR_RED);
+    lv_style_set_border_color(&slider_line1,LV_STATE_DEFAULT, LV_COLOR_RED);
+
+    lv_style_init(&textBoxStyle);
+    lv_style_set_pad_all(&textBoxStyle, LV_STATE_DEFAULT, 10);
+    lv_style_set_text_color(&textBoxStyle, LV_STATE_DEFAULT, LV_COLOR_MAKE(0x40, 0x3D, 0x58));
+    lv_style_set_text_letter_space(&textBoxStyle, LV_STATE_DEFAULT, 5);
+    lv_style_set_text_line_space(&textBoxStyle, LV_STATE_DEFAULT, 20);
+    lv_style_set_text_font(&textBoxStyle, LV_STATE_DEFAULT, &novamono_48);
+
+    lv_style_init(&textBoxStyle2);
+    lv_style_set_pad_all(&textBoxStyle2, LV_STATE_DEFAULT, 10);
+    lv_style_set_text_color(&textBoxStyle2, LV_STATE_DEFAULT, LV_COLOR_MAKE(0x40, 0x3D, 0x58));
+    lv_style_set_text_letter_space(&textBoxStyle2, LV_STATE_DEFAULT, 5);
+    lv_style_set_text_line_space(&textBoxStyle2, LV_STATE_DEFAULT, 20);
+    lv_style_set_text_font(&textBoxStyle2, LV_STATE_DEFAULT, &novamono_60);
+    lv_style_set_border_color(&textBoxStyle2, LV_STATE_DEFAULT, LV_COLOR_BLACK);
+
+    lv_style_init(&arcTextStyle);
+    lv_style_set_pad_all(&arcTextStyle, LV_STATE_DEFAULT, 0);
+    lv_style_set_text_color(&arcTextStyle, LV_STATE_DEFAULT, LV_COLOR_MAKE(0x40, 0x3D, 0x58));
+    lv_style_set_text_letter_space(&arcTextStyle, LV_STATE_DEFAULT, 5);
+    lv_style_set_text_line_space(&arcTextStyle, LV_STATE_DEFAULT, 20);
+    lv_style_set_text_font(&arcTextStyle, LV_STATE_DEFAULT, &novamono_26);
+
+    lv_style_init(&bgBoxStyle);
+    lv_style_set_bg_opa(&bgBoxStyle, LV_STATE_DEFAULT, LV_OPA_COVER); 
+    lv_style_set_bg_color(&bgBoxStyle, LV_STATE_DEFAULT, LV_COLOR_MAKE(0xF5, 0xF3, 0xF2));
+    lv_style_set_radius(&bgBoxStyle, LV_STATE_DEFAULT, 3);
+    lv_style_set_outline_width(&bgBoxStyle, LV_STATE_DEFAULT, 2);
+    lv_style_set_outline_color(&bgBoxStyle, LV_STATE_DEFAULT, LV_COLOR_RED);
+    lv_style_set_outline_pad(&bgBoxStyle, LV_STATE_DEFAULT, 2);
 
 
 
@@ -853,32 +1062,28 @@ void lv_demo_widgets(void)
     selectors_create(t5);
 }
 
-
 /**********************
  *   STATIC FUNCTIONS
  **********************/
 
-
-
-
 //Tasks
 static void bpm_updater(lv_task_t * t)
   {
-    static char buf[64];
+  static char buf[64];
 
-    lv_snprintf(buf, sizeof(buf), "#000000 BPM  %d", BPM);
-    const char * texts[] = {buf}; 
-    //lv_obj_set_style_local_value_str(bar, LV_LABEL_ALIGN_CENTER, LV_STATE_DEFAULT, buf);
-    lv_label_set_recolor(bpm_label[0], true);
-    lv_label_set_text(bpm_label[0], buf);
+  lv_snprintf(buf, sizeof(buf), "#000000 BPM   %d", BPM);
+  const char * texts[] = {buf}; 
+  //lv_obj_set_style_local_value_str(bar, LV_LABEL_ALIGN_CENTER, LV_STATE_DEFAULT, buf);
+  lv_label_set_recolor(bpm_label[0], true);
+  lv_label_set_text(bpm_label[0], buf);
 
-    //lv_label_set_text(bar, buf);
+  //lv_label_set_text(bar, buf);
   }
 
 static void bank_updater(lv_task_t * t)
   {
     static char buf[64];
-    lv_snprintf(buf, sizeof(buf), "#000000 BANK %d", bank);
+    lv_snprintf(buf, sizeof(buf), "#000000 BANK  %d", bank);
 
     const char * texts[] = {buf}; 
     //lv_obj_set_style_local_value_str(bar, LV_LABEL_ALIGN_CENTER, LV_STATE_DEFAULT, buf);
@@ -888,58 +1093,299 @@ static void bank_updater(lv_task_t * t)
     //lv_label_set_text(bar, buf);
   }
 
+static void track_updater(lv_task_t * t)
+  {
+  static char buf[64];
+  lv_snprintf(buf, sizeof(buf), "#000000 TRACK %d", track);
 
-//Screens
+  const char * texts[] = {buf}; 
+  //lv_obj_set_style_local_value_str(bar, LV_LABEL_ALIGN_CENTER, LV_STATE_DEFAULT, buf);
+  lv_label_set_recolor(track_label[0], true);
+  lv_label_set_text(track_label[0], buf);
+
+  //lv_label_set_text(bar, buf);
+  }
+
+static void mode_updater(lv_task_t * t)
+  {
+  static char buf[64];
+  if (mode == 0){
+    lv_snprintf(buf, sizeof(buf), "K");
+  }
+  if (mode == 1){
+    lv_snprintf(buf, sizeof(buf), "U");
+  }
+  if (mode == 2){
+    lv_snprintf(buf, sizeof(buf), "S");
+  }
+  if (mode == 3){
+    lv_snprintf(buf, sizeof(buf), "N");
+  }
+  if (mode == 4){
+    lv_snprintf(buf, sizeof(buf), "L");
+  }
+
+  const char * texts[] = {buf}; 
+  //lv_obj_set_style_local_value_str(bar, LV_LABEL_ALIGN_CENTER, LV_STATE_DEFAULT, buf);
+  lv_label_set_recolor(mode_label[0], true);
+  lv_label_set_text(mode_label[0], buf);
+
+  //lv_label_set_text(bar, buf);
+  }
+
+static void octave_updater(lv_task_t * t)
+    {
+    if (octave == octaveCheck){
+
+    }
+    else{
+    rollerIndex = lv_roller_get_selected(roller);
+      if (rollerIndex != octave){
+        lv_roller_set_selected(roller, octave, LV_ANIM_OFF);
+      }
+      octaveCheck = octave;
+    }
+  }
+
+static void arc_anim(lv_task_t * t)
+    {
+      Q5buff = 0;
+      xQueueReceive(Q5,(void *) &Q5buff,10);
+      arcValues[0] = Q5buff & 0xFF;
+      arcValues[1] = (Q5buff & 0xFF00) >> 8;
+      arcValues[2] = (Q5buff & 0xFF0000) >> 16;
+      arcValues[3] = (Q5buff & 0xFF000000) >> 24;
+      arcValues[4] = (Q5buff & 0xFF00000000) >> 32;
+      arcValues[5] = (Q5buff & 0xFF0000000000) >> 40;
+      arcValues[6] = (Q5buff & 0xFF000000000000) >> 48;
+      arcValues[7] = (Q5buff & 0xFF00000000000000) >> 56;
+      
+
+
+
+        if (arcValues[0] == arcChecks[0]){
+
+        }
+        else{
+        static char buf[64];
+        lv_snprintf(buf, sizeof(buf), "%d", arcValues[0]);
+        const char * texts[] = {buf}; 
+
+        lv_arc_set_value(arc1, arcValues[0]);
+        lv_label_set_text(arcText[0], buf);
+        lv_obj_align(arcText[0], NULL, LV_ALIGN_CENTER, 0, 0);
+        //lv_label_set_align(arc1Text[0], LV_LABEL_ALIGN_CENTER);
+
+        arcChecks[0] = arcValues[0];
+        }
+
+        if (arcValues[1] == arcChecks[1]){
+
+        }
+        else{
+        static char buf[64];
+        lv_snprintf(buf, sizeof(buf), "%d", arcValues[1]);
+        const char * texts[] = {buf}; 
+        
+        lv_arc_set_value(arc2, arcValues[1]);
+        lv_label_set_text(arcText[1], buf);
+        lv_obj_align(arcText[1], NULL, LV_ALIGN_CENTER, 0, 0);
+
+        arcChecks[1] = arcValues[1];
+        }
+
+        if (arcValues[2] == arcChecks[2]){
+
+        }
+        else{
+        static char buf[64];
+        lv_snprintf(buf, sizeof(buf), "%d", arcValues[2]);
+        const char * texts[] = {buf}; 
+        
+        lv_arc_set_value(arc3, arcValues[2]);
+        lv_label_set_text(arcText[2], buf);
+        lv_obj_align(arcText[2], NULL, LV_ALIGN_CENTER, 0, 0);
+
+        arcChecks[2] = arcValues[2];
+
+        }
+
+        if (arcValues[3] == arcChecks[3]){
+
+        }
+        else{
+        static char buf[64];
+        lv_snprintf(buf, sizeof(buf), "%d", arcValues[3]);
+        const char * texts[] = {buf}; 
+        
+        lv_arc_set_value(arc4, arcValues[3]);
+        lv_label_set_text(arcText[3], buf);
+        lv_obj_align(arcText[3], NULL, LV_ALIGN_CENTER, 0, 0);
+
+        arcChecks[3] = arcValues[3];
+        }
+
+        if (arcValues[4] == arcChecks[4]){
+
+        }
+        else{
+
+        static char buf[64];
+        lv_snprintf(buf, sizeof(buf), "%d", arcValues[4]);
+        const char * texts[] = {buf}; 
+        
+        lv_arc_set_value(arc5, arcValues[4]);
+        lv_label_set_text(arcText[4], buf);
+        lv_obj_align(arcText[4], NULL, LV_ALIGN_CENTER, 0, 0);
+
+        arcChecks[4] = arcValues[4];
+        }
+
+        if (arcValues[5] == arcChecks[5]){
+
+        }
+        else{
+        static char buf[64];
+        lv_snprintf(buf, sizeof(buf), "%d", arcValues[5]);
+        const char * texts[] = {buf}; 
+        
+        lv_arc_set_value(arc6, arcValues[5]);
+        lv_label_set_text(arcText[5], buf);
+        lv_obj_align(arcText[5], NULL, LV_ALIGN_CENTER, 0, 0);
+
+        arcChecks[5] = arcValues[5];
+        }
+
+        if (arcValues[6] == arcChecks[6]){
+
+        }
+        else{
+        static char buf[64];
+        lv_snprintf(buf, sizeof(buf), "%d", arcValues[6]);
+        const char * texts[] = {buf}; 
+        
+        lv_arc_set_value(arc7, arcValues[6]);
+        lv_label_set_text(arcText[6], buf);
+        lv_obj_align(arcText[6], NULL, LV_ALIGN_CENTER, 0, 0);
+
+        arcChecks[6] = arcValues[6];
+        }
+
+        if (arcValues[7] == arcChecks[7]){
+
+        }
+        else{
+
+        static char buf[64];
+        lv_snprintf(buf, sizeof(buf), "%d", arcValues[7]);
+        const char * texts[] = {buf}; 
+        
+        lv_arc_set_value(arc8, arcValues[7]);
+        lv_label_set_text(arcText[7], buf);
+        lv_obj_align(arcText[7], NULL, LV_ALIGN_CENTER, 0, 0);
+
+        arcChecks[7] = arcValues[7];
+        }
+
+
+    }
+
+static void slider_anim(lv_task_t * t){
+  if (slider1Val == slider1Check){
+
+  } else{
+    lv_bar_set_value(slider1, slider1Val, LV_ANIM_OFF);
+    slider1Check = slider1Val;
+  }
+  if (slider2Val == slider2Check){
+
+  }else{
+    lv_bar_set_value(slider2, slider2Val, LV_ANIM_OFF);
+    slider2Check = slider2Val;
+  } 
+  }
+
+//********Screens*********
 static void stats_create(lv_obj_t * parent)
   {
     lv_page_set_scrl_layout(parent, LV_LAYOUT_OFF);
     lv_disp_size_t disp_size = lv_disp_get_size_category(NULL);
-
-    static lv_style_t textBoxStyle;
-    lv_style_init(&textBoxStyle);
-
-    lv_style_set_radius(&textBoxStyle, LV_STATE_DEFAULT, 5);
-    lv_style_set_bg_opa(&textBoxStyle, LV_STATE_DEFAULT, LV_OPA_COVER);
-    lv_style_set_bg_color(&textBoxStyle, LV_STATE_DEFAULT, LV_COLOR_WHITE);
-    lv_style_set_border_width(&textBoxStyle, LV_STATE_DEFAULT, 3);
-    lv_style_set_border_color(&textBoxStyle, LV_STATE_DEFAULT, LV_COLOR_BLUE);
-    lv_style_set_pad_all(&textBoxStyle, LV_STATE_DEFAULT, 10);
-
-    lv_style_set_text_color(&textBoxStyle, LV_STATE_DEFAULT, LV_COLOR_BLACK);
-    lv_style_set_text_letter_space(&textBoxStyle, LV_STATE_DEFAULT, 5);
-    lv_style_set_text_line_space(&textBoxStyle, LV_STATE_DEFAULT, 20);
-    lv_style_set_text_font(&textBoxStyle, LV_STATE_DEFAULT, &novamono_36);
 
     //BPM
     bpm_label[0] = lv_label_create(parent, NULL);
     lv_obj_align(bpm_label[0], NULL, LV_ALIGN_IN_TOP_LEFT, 10, 10);
     //lv_obj_set_style_local_text_font(bpm_label[0], NULL, NULL, &novamono_48);
     lv_obj_add_style(bpm_label[0], LV_LABEL_PART_MAIN, &textBoxStyle);
+
     //Bank
     bank_label[0] = lv_label_create(parent, NULL);
-    lv_obj_align(bank_label[0], NULL, LV_ALIGN_IN_TOP_LEFT, 10, 60);
+    lv_obj_align(bank_label[0], NULL, LV_ALIGN_IN_TOP_LEFT, 10, 65);
     //lv_obj_set_style_local_text_font(bpm_label[0], NULL, NULL, &novamono_28);
     lv_obj_add_style(bank_label[0], LV_LABEL_PART_MAIN, &textBoxStyle);
 
-    lv_obj_t * btn_bpm = lv_btn_create(parent, NULL);     /*Add a button the current screen*/
-    lv_obj_set_pos(btn_bpm, 180, 50);                            /*Set its position*/
-    lv_obj_set_size(btn_bpm, 40, 30);                          /*Set its size*/
+    //Track
+    track_label[0] = lv_label_create(parent, NULL);
+    lv_obj_align(track_label[0], NULL, LV_ALIGN_IN_TOP_LEFT, 10, 120);
+    //lv_obj_set_style_local_text_font(bpm_label[0], NULL, NULL, &novamono_28);
+    lv_obj_add_style(track_label[0], LV_LABEL_PART_MAIN, &textBoxStyle);
+
+    //Mode
+    mode_label[0] = lv_label_create(parent, NULL);
+    lv_obj_align(mode_label[0], NULL, LV_ALIGN_IN_TOP_LEFT, 270, 10);
+    //lv_obj_set_style_local_text_font(bpm_label[0], NULL, NULL, &novamono_28);
+    lv_obj_add_style(mode_label[0], LV_LABEL_PART_MAIN, &textBoxStyle2);
+
+  /*
+    lv_obj_t * btn_bpm = lv_btn_create(parent, NULL);     //Add a button the current screen
+        lv_obj_set_pos(btn_bpm, 200, 30);                            //Set its position
+    lv_obj_set_size(btn_bpm, 40, 30);                          //Set its size
     lv_obj_set_event_cb(btn_bpm, btn_bpm_e); 
 
-    lv_obj_t * btn_bank = lv_btn_create(parent, NULL);     /*Add a button the current screen*/
-    lv_obj_set_pos(btn_bank, 180, 100);                            /*Set its position*/
-    lv_obj_set_size(btn_bank, 40, 30);                          /*Set its size*/
+    lv_obj_t * btn_bank = lv_btn_create(parent, NULL);     //Add a button the current screen
+    lv_obj_set_pos(btn_bank, 200, 90);                            //Set its position
+    lv_obj_set_size(btn_bank, 40, 30);                          //Set its size
     lv_obj_set_event_cb(btn_bank, btn_bank_pos_e); 
 
-    lv_obj_t * btn_bank_neg = lv_btn_create(parent, NULL);     /*Add a button the current screen*/
-    lv_obj_set_pos(btn_bank_neg, 180, 150);                            /*Set its position*/
-    lv_obj_set_size(btn_bank_neg, 40, 30);                          /*Set its size*/
+    lv_obj_t * btn_bank_neg = lv_btn_create(parent, NULL);     //Add a button the current screen
+    lv_obj_set_pos(btn_bank_neg, 200, 140);                            //Set its position
+    lv_obj_set_size(btn_bank_neg, 40, 30);                          //Set its size
     lv_obj_set_event_cb(btn_bank_neg, btn_bank_neg_e); 
+
+    lv_obj_t * octave_btn = lv_btn_create(parent, NULL);     //Add a button the current screen
+        lv_obj_set_pos(octave_btn, 250, 80);                            //Set its position    
+        lv_obj_set_size(octave_btn, 40, 30);                          //Set its size
+    lv_obj_set_event_cb(octave_btn, btn_octave_e); 
+  */
+
+    roller = lv_roller_create(parent, NULL);
+    lv_roller_set_options(roller,
+                    "C0 - C2\n"
+                    "C1 - C3\n"
+                    "C2 - C4\n"
+                    "C3 - C5\n"
+                    "C4 - C6\n"
+                    "C5 - C7\n"
+                    "C6 - C8",
+                    LV_ROLLER_MODE_NORMAL);
+    lv_obj_add_style(roller, LV_CONT_PART_MAIN, &textBoxStyle);
+    lv_obj_set_style_local_value_str(roller, LV_CONT_PART_MAIN, LV_STATE_DEFAULT, "Roller");
+    lv_roller_set_auto_fit(roller, false);
+    lv_obj_align(roller, NULL, LV_ALIGN_IN_TOP_LEFT, 180, 120);
+    lv_roller_set_visible_row_count(roller, 1);
+    lv_obj_set_width(roller, 120);
+    lv_obj_set_event_cb(roller, rollerEH);  
+
 
     lv_task_t * t = lv_task_create(bpm_updater, 100, LV_TASK_PRIO_MID, NULL);
     lv_task_ready(t);  
     lv_task_t * u = lv_task_create(bank_updater, 100, LV_TASK_PRIO_MID, NULL);
-    lv_task_ready(u);  
+    lv_task_ready(u); 
+    lv_task_t * v = lv_task_create(track_updater, 100, LV_TASK_PRIO_MID, NULL);
+    lv_task_ready(v);  
+    lv_task_t * w = lv_task_create(mode_updater, 100, LV_TASK_PRIO_MID, NULL);
+    lv_task_ready(w);  
+    lv_task_t * x = lv_task_create(octave_updater, 100, LV_TASK_PRIO_MID, NULL);
+    lv_task_ready(x);  
   }
 
 static void visuals_create(lv_obj_t * parent)
@@ -974,15 +1420,17 @@ static void visuals_create(lv_obj_t * parent)
 static void save_create(lv_obj_t * parent)
   {
     lv_page_set_scrl_layout(parent, LV_LAYOUT_PRETTY_TOP);
-
     lv_disp_size_t disp_size = lv_disp_get_size_category(NULL);
 
-    /*BAR*/
+    listLeft = lv_list_create(parent, NULL);
+    lv_obj_align(listLeft, NULL, LV_ALIGN_CENTER,-80,0);
+    lv_obj_add_style(listLeft, LV_STATE_DEFAULT, &bgBoxStyle);
+    lv_obj_set_size(listLeft, 160,100);
 
-    /*Create a bar and use the backgrounds value style property to display the current value*/
-    lv_obj_t * textBox = lv_textarea_create(parent, NULL);
-    lv_textarea_add_text(textBox, "Hi, this is the save screen");
-    lv_obj_align(textBox, NULL, LV_ALIGN_CENTER,0,0);
+    listRight = lv_list_create(parent, NULL);
+    lv_obj_align(listRight, NULL, LV_ALIGN_CENTER,80,0);
+    lv_obj_add_style(listRight, LV_STATE_DEFAULT, &bgBoxStyle);
+    lv_obj_set_size(listRight, 160,100);
   }
 
 static void controls_create(lv_obj_t * parent)
@@ -991,121 +1439,214 @@ static void controls_create(lv_obj_t * parent)
 
     lv_disp_size_t disp_size = lv_disp_get_size_category(NULL);
 
+    int row1 = 0;
+    int row2 = 60;
+    int col1 = 10;
+    int col2 = 80;
+    int col3 = 150;
+    int col4 = 220;
+
     //Row1 *******
 
     // ARC1
-    lv_obj_t * arc1 = lv_arc_create(parent, NULL);
+    arc1 = lv_arc_create(parent, NULL);
     lv_obj_set_drag_parent(arc1, false);
     lv_arc_set_bg_angles(arc1, 0, 270);
     lv_arc_set_rotation(arc1, 135);
-    lv_arc_set_angles(arc1, 0, 0);
+    lv_arc_set_angles(arc1, 0, 270);
     lv_obj_set_size(arc1,  80, 80);
+    lv_arc_set_range(arc1, 0, 127);
 
-    lv_obj_align(arc1, NULL, LV_ALIGN_IN_TOP_LEFT, 10, 0);
-    lv_obj_add_style(arc1, LV_LINE_PART_MAIN, &arc_line);
-    lv_obj_add_style(arc1, LV_ARC_PART_BG, &arc_bg);
+    lv_obj_align(arc1, NULL, LV_ALIGN_IN_TOP_LEFT, col1, row1);
+    //lv_obj_add_style(arc1, LV_ARC_PART_BG, &arc_line);
+    lv_obj_add_style(arc1, LV_ARC_PART_BG, &arc_line);
+    lv_obj_add_style(arc1, LV_ARC_PART_INDIC, &arc_line_indic);
+
+    arcText[0] = lv_label_create(arc1, NULL);
+    lv_label_set_text(arcText[0], " 0 ");
+    lv_obj_align(arcText[0], NULL, LV_ALIGN_CENTER, -6, 0);
+    lv_obj_set_width(arcText[0], 50);
+    lv_obj_add_style(arcText[0], LV_STATE_DEFAULT, &arcTextStyle);
+    lv_label_set_align(arcText[0], LV_LABEL_ALIGN_CENTER);
+    //lv_label_set_long_mode(arc1Text[0], LV_LABEL_LONG_BREAK);
 
     // ARC2
-    lv_obj_t * arc2 = lv_arc_create(parent, NULL);
+    arc2 = lv_arc_create(parent, NULL);
     lv_obj_set_drag_parent(arc2, false);
     lv_arc_set_bg_angles(arc2, 0, 270);
     lv_arc_set_rotation(arc2, 135);
     lv_arc_set_angles(arc2, 0, 0);
     lv_obj_set_size(arc2,  80, 80);
+    lv_arc_set_range(arc2, 0, 127);
 
-    lv_obj_align(arc2, NULL, LV_ALIGN_IN_TOP_LEFT, 82, 00);
-    lv_obj_add_style(arc2, LV_LINE_PART_MAIN, &arc_line);
-    lv_obj_add_style(arc2, LV_ARC_PART_BG, &arc_bg);
+
+    lv_obj_align(arc2, NULL, LV_ALIGN_IN_TOP_LEFT, col2, row1);
+    //lv_obj_add_style(arc1, LV_ARC_PART_MAIN, &arc_line);
+    lv_obj_add_style(arc2, LV_ARC_PART_BG, &arc_line);
+    lv_obj_add_style(arc2, LV_ARC_PART_INDIC, &arc_line_indic);
+
+    arcText[1] = lv_label_create(arc2, NULL);
+    lv_label_set_text(arcText[1], " 0 ");
+    lv_obj_align(arcText[1], NULL, LV_ALIGN_CENTER, -6, 0);
+    lv_obj_set_width(arcText[1], 50);
+    lv_obj_add_style(arcText[1], LV_STATE_DEFAULT, &arcTextStyle);
+    lv_label_set_align(arcText[1], LV_LABEL_ALIGN_CENTER);
+    //lv_label_set_long_mode(arc1Text[0], LV_LABEL_LONG_BREAK);
 
     // ARC3
-    lv_obj_t * arc3 = lv_arc_create(parent, NULL);
+    arc3 = lv_arc_create(parent, NULL);
     lv_obj_set_drag_parent(arc3, false);
     lv_arc_set_bg_angles(arc3, 0, 270);
     lv_arc_set_rotation(arc3, 135);
     lv_arc_set_angles(arc3, 0, 0);
     lv_obj_set_size(arc3,  80, 80);
+    lv_arc_set_range(arc3, 0, 127);
 
-    lv_obj_align(arc3, NULL, LV_ALIGN_IN_TOP_LEFT, 154, 0);
-    lv_obj_add_style(arc3, LV_LINE_PART_MAIN, &arc_line);
-    lv_obj_add_style(arc3, LV_ARC_PART_BG, &arc_bg);
+    lv_obj_align(arc3, NULL, LV_ALIGN_IN_TOP_LEFT, col3, row1);
+    //lv_obj_add_style(arc1, LV_ARC_PART_MAIN, &arc_line);
+    lv_obj_add_style(arc3, LV_ARC_PART_BG, &arc_line);
+    lv_obj_add_style(arc3, LV_ARC_PART_INDIC, &arc_line_indic);
+
+    arcText[2] = lv_label_create(arc3, NULL);
+    lv_label_set_text(arcText[2], " 0 ");
+    lv_obj_align(arcText[2], NULL, LV_ALIGN_CENTER, -6, 0);
+    lv_obj_set_width(arcText[2], 50);
+    lv_obj_add_style(arcText[2], LV_STATE_DEFAULT, &arcTextStyle);
+    lv_label_set_align(arcText[2], LV_LABEL_ALIGN_CENTER);
+    //lv_label_set_long_mode(arc1Text[0], LV_LABEL_LONG_BREAK);
 
     // ARC4
-    lv_obj_t * arc4 = lv_arc_create(parent, NULL);
+    arc4 = lv_arc_create(parent, NULL);
     lv_obj_set_drag_parent(arc4, false);
     lv_arc_set_bg_angles(arc4, 0, 270);
     lv_arc_set_rotation(arc4, 135);
     lv_arc_set_angles(arc4, 0, 0);
     lv_obj_set_size(arc4,  80, 80);
+    lv_arc_set_range(arc4, 0, 127);
 
-    lv_obj_align(arc4, NULL, LV_ALIGN_IN_TOP_LEFT, 226, 0);
-    lv_obj_add_style(arc4, LV_LINE_PART_MAIN, &arc_line);
-    lv_obj_add_style(arc4, LV_ARC_PART_BG, &arc_bg);
+    lv_obj_align(arc4, NULL, LV_ALIGN_IN_TOP_LEFT, col4, row1);
+    //lv_obj_add_style(arc1, LV_ARC_PART_MAIN, &arc_line);
+    lv_obj_add_style(arc4, LV_ARC_PART_BG, &arc_line);
+    lv_obj_add_style(arc4, LV_ARC_PART_INDIC, &arc_line_indic);
+
+    arcText[3] = lv_label_create(arc4, NULL);
+    lv_label_set_text(arcText[3], " 0 ");
+    lv_obj_align(arcText[3], NULL, LV_ALIGN_CENTER, -6, 0);
+    lv_obj_set_width(arcText[3], 50);
+    lv_obj_add_style(arcText[3], LV_STATE_DEFAULT, &arcTextStyle);
+    lv_label_set_align(arcText[3], LV_LABEL_ALIGN_CENTER);
+    //lv_label_set_long_mode(arc1Text[0], LV_LABEL_LONG_BREAK);
 
     //Row1 *******
     // ARC5
-    lv_obj_t * arc5 = lv_arc_create(parent, NULL);
+    arc5 = lv_arc_create(parent, NULL);
     lv_obj_set_drag_parent(arc5, false);
     lv_arc_set_bg_angles(arc5, 0, 270);
     lv_arc_set_rotation(arc5, 135);
     lv_arc_set_angles(arc5, 0, 0);
     lv_obj_set_size(arc5,  80, 80);
+    lv_arc_set_range(arc5, 0, 127);
 
-    lv_obj_align(arc5, NULL, LV_ALIGN_IN_TOP_LEFT, 10, 60);
-    lv_obj_add_style(arc5, LV_LINE_PART_MAIN, &arc_line);
-    lv_obj_add_style(arc5, LV_ARC_PART_BG, &arc_bg);
+    lv_obj_align(arc5, NULL, LV_ALIGN_IN_TOP_LEFT, col1, row2);
+    //lv_obj_add_style(arc1, LV_ARC_PART_MAIN, &arc_line);
+    lv_obj_add_style(arc5, LV_ARC_PART_BG, &arc_line);
+    lv_obj_add_style(arc5, LV_ARC_PART_INDIC, &arc_line_indic);
+
+    arcText[4] = lv_label_create(arc5, NULL);
+    lv_label_set_text(arcText[4], " 0 ");
+    lv_obj_align(arcText[4], NULL, LV_ALIGN_CENTER, -6, 0);
+    lv_obj_set_width(arcText[4], 50);
+    lv_obj_add_style(arcText[4], LV_STATE_DEFAULT, &arcTextStyle);
+    lv_label_set_align(arcText[4], LV_LABEL_ALIGN_CENTER);
 
     // ARC6
-    lv_obj_t * arc6 = lv_arc_create(parent, NULL);
+    arc6 = lv_arc_create(parent, NULL);
     lv_obj_set_drag_parent(arc6, false);
     lv_arc_set_bg_angles(arc6, 0, 270);
     lv_arc_set_rotation(arc6, 135);
     lv_arc_set_angles(arc6, 0, 0);
     lv_obj_set_size(arc6,  80, 80);
+    lv_arc_set_range(arc6, 0, 127);
 
-    lv_obj_align(arc6, NULL, LV_ALIGN_IN_TOP_LEFT, 82, 60);
-    lv_obj_add_style(arc6, LV_LINE_PART_MAIN, &arc_line);
-    lv_obj_add_style(arc6, LV_ARC_PART_BG, &arc_bg);
+    lv_obj_align(arc6, NULL, LV_ALIGN_IN_TOP_LEFT, col2, row2);
+    //lv_obj_add_style(arc1, LV_ARC_PART_MAIN, &arc_line);
+    lv_obj_add_style(arc6, LV_ARC_PART_BG, &arc_line);
+    lv_obj_add_style(arc6, LV_ARC_PART_INDIC, &arc_line_indic);
+
+    arcText[5] = lv_label_create(arc6, NULL);
+    lv_label_set_text(arcText[5], " 0 ");
+    lv_obj_align(arcText[5], NULL, LV_ALIGN_CENTER, -6, 0);
+    lv_obj_set_width(arcText[5], 50);
+    lv_obj_add_style(arcText[5], LV_STATE_DEFAULT, &arcTextStyle);
+    lv_label_set_align(arcText[5], LV_LABEL_ALIGN_CENTER);
 
     // ARC7
-    lv_obj_t * arc7 = lv_arc_create(parent, NULL);
+    arc7 = lv_arc_create(parent, NULL);
     lv_obj_set_drag_parent(arc7, false);
     lv_arc_set_bg_angles(arc7, 0, 270);
     lv_arc_set_rotation(arc7, 135);
     lv_arc_set_angles(arc7, 0, 0);
     lv_obj_set_size(arc7,  80, 80);
+    lv_arc_set_range(arc7, 0, 127);
 
-    lv_obj_align(arc7, NULL, LV_ALIGN_IN_TOP_LEFT, 154, 60);
-    lv_obj_add_style(arc7, LV_LINE_PART_MAIN, &arc_line);
-    lv_obj_add_style(arc7, LV_ARC_PART_BG, &arc_bg);
+    lv_obj_align(arc7, NULL, LV_ALIGN_IN_TOP_LEFT, col3, row2);
+    //lv_obj_add_style(arc1, LV_ARC_PART_MAIN, &arc_line);
+    lv_obj_add_style(arc7, LV_ARC_PART_BG, &arc_line);
+    lv_obj_add_style(arc7, LV_ARC_PART_INDIC, &arc_line_indic);
+
+    arcText[6] = lv_label_create(arc7, NULL);
+    lv_label_set_text(arcText[6], " 0 ");
+    lv_obj_align(arcText[6], NULL, LV_ALIGN_CENTER, -6, 0);
+    lv_obj_set_width(arcText[6], 50);
+    lv_obj_add_style(arcText[6], LV_STATE_DEFAULT, &arcTextStyle);
+    lv_label_set_align(arcText[6], LV_LABEL_ALIGN_CENTER);
 
     // ARC8
-    lv_obj_t * arc8 = lv_arc_create(parent, NULL);
+    arc8 = lv_arc_create(parent, NULL);
     lv_obj_set_drag_parent(arc8, false);
     lv_arc_set_bg_angles(arc8, 0, 270);
     lv_arc_set_rotation(arc8, 135);
-    lv_arc_set_angles(arc8, 0, 0);
+    lv_arc_set_angles(arc8, 0, 0);  
     lv_obj_set_size(arc8,  80, 80);
+    lv_arc_set_range(arc8, 0, 127);
 
-    lv_obj_align(arc8, NULL, LV_ALIGN_IN_TOP_LEFT, 226, 60);
-    lv_obj_add_style(arc8, LV_LINE_PART_MAIN, &arc_line);
-    lv_obj_add_style(arc8, LV_ARC_PART_BG, &arc_bg);
+    lv_obj_align(arc8, NULL, LV_ALIGN_IN_TOP_LEFT, col4, row2);
+    //lv_obj_add_style(arc1, LV_ARC_PART_MAIN, &arc_line);
+    lv_obj_add_style(arc8, LV_ARC_PART_BG, &arc_line);
+    lv_obj_add_style(arc8, LV_ARC_PART_INDIC, &arc_line_indic);
+
+    arcText[7] = lv_label_create(arc8, NULL);
+    lv_label_set_text(arcText[7], " 0 ");
+    lv_obj_align(arcText[7], NULL, LV_ALIGN_CENTER, -6, 0);
+    lv_obj_set_width(arcText[7], 50);
+    lv_obj_add_style(arcText[7], LV_STATE_DEFAULT, &arcTextStyle);
+    lv_label_set_align(arcText[7], LV_LABEL_ALIGN_CENTER);
+
+    //Button for testing
+    lv_obj_t * arc1_btn = lv_btn_create(parent, NULL);     //Add a button the current screen
+    lv_obj_set_pos(arc1_btn, 20, 130);                            //Set its position
+    lv_obj_set_size(arc1_btn, 80, 50);                          //Set its size
+    lv_obj_set_event_cb(arc1_btn, arc1_btn_e); 
 
     //SLIDER 1
-    lv_obj_t * slider1 = lv_bar_create(parent, NULL);
+    slider1 = lv_bar_create(parent, NULL);
     lv_obj_add_style(slider1, LV_BAR_PART_BG, &slider_line);
-    lv_obj_add_style(slider1, LV_BAR_PART_INDIC, &slider_line);
-    lv_obj_align(slider1, NULL, LV_ALIGN_IN_TOP_LEFT, 10, 130);
+    lv_obj_add_style(slider1, LV_BAR_PART_INDIC, &slider_line1);
+    lv_obj_align(slider1, NULL, LV_ALIGN_IN_TOP_LEFT, 10, 140);
     lv_obj_set_size(slider1, 298, 5);
 
+    lv_bar_set_range(slider1, 0, 127);
+
     //SLIDER 2
-    lv_obj_t * slider2 = lv_bar_create(parent, NULL);
+    slider2 = lv_bar_create(parent, NULL);
     lv_obj_add_style(slider2, LV_BAR_PART_BG, &slider_line);
-    lv_obj_add_style(slider2, LV_BAR_PART_INDIC, &slider_line);
-    lv_obj_align(slider2, NULL, LV_ALIGN_IN_TOP_LEFT, 10, 155);
+    lv_obj_add_style(slider2, LV_BAR_PART_INDIC, &slider_line1);
+    lv_obj_align(slider2, NULL, LV_ALIGN_IN_TOP_LEFT, 10, 165);
     lv_obj_set_size(slider2, 298, 5);
 
     //Tasks
-    lv_task_create(bar_anim, 100, LV_TASK_PRIO_LOW, slider1);
+    lv_task_create(arc_anim, 100, LV_TASK_PRIO_LOW, NULL);
+    lv_task_create(slider_anim, 100, LV_TASK_PRIO_LOW, NULL);
 
   }
 
@@ -1159,12 +1700,25 @@ static void selectors_create(lv_obj_t * parent)
 
 
     lv_obj_t * roller = lv_roller_create(h, NULL);
-    lv_obj_add_style(roller, LV_CONT_PART_MAIN, &style_box);
+    lv_roller_set_options(roller,
+                    "C0 - C2\n"
+                    "C1 - C3\n"
+                    "C2 - C4\n"
+                    "C3 - C5\n"
+                    "C4 - C6\n"
+                    "C5 - C7\n"
+                    "C6 - C8\n",
+                    LV_ROLLER_MODE_NORMAL);
+    lv_obj_add_style(roller, LV_CONT_PART_MAIN, &textBoxStyle);
     lv_obj_set_style_local_value_str(roller, LV_CONT_PART_MAIN, LV_STATE_DEFAULT, "Roller");
     lv_roller_set_auto_fit(roller, false);
     lv_roller_set_align(roller, LV_LABEL_ALIGN_CENTER);
-    lv_roller_set_visible_row_count(roller, 4);
-    lv_obj_set_width(roller, lv_obj_get_width_grid(h, disp_size <= LV_DISP_SIZE_SMALL ? 1 : 2, 1));
+    lv_roller_set_visible_row_count(roller, 1);
+    lv_obj_set_width(roller, 120); 
+    lv_roller_set_selected(roller, rollerIndex, LV_ANIM_OFF);
+
+    lv_obj_set_event_cb(roller, rollerEH);  
+    rollerIndex = lv_roller_get_selected(roller);
 
     lv_obj_t * dd = lv_dropdown_create(h, NULL);
     lv_obj_add_style(dd, LV_CONT_PART_MAIN, &style_box);
@@ -1298,9 +1852,8 @@ static void kb_event_cb(lv_obj_t * _kb, lv_event_t e)
     }
   }
 
-
 static void bar_anim(lv_task_t * t)
-{
+  {
     static uint32_t x = 0;
     lv_obj_t * bar = t->user_data;
 
@@ -1313,7 +1866,10 @@ static void bar_anim(lv_task_t * t)
 
     //Configure ADC
     adc1_config_width(width2);
+    adc1_config_channel_atten(channel1, atten);
     adc1_config_channel_atten(channel2, atten);
+    adc1_config_channel_atten(channel3, atten);
+
 
     //Characterize ADC
     adc_chars2 = calloc(1, sizeof(esp_adc_cal_characteristics_t));
@@ -1332,22 +1888,10 @@ static void bar_anim(lv_task_t * t)
     printf("X - %.4f\n", xVal);
 
     lv_bar_set_value(bar, xVal, LV_ANIM_OFF);
-}
-
-static void arc_anim(lv_obj_t * arc, lv_anim_value_t value)
-{
-    lv_arc_set_end_angle(arc, value);
-
-    static char buf[64];
-    lv_snprintf(buf, sizeof(buf), "%d", value);
-    lv_obj_t * label = lv_obj_get_child(arc, NULL);
-    lv_label_set_text(label, buf);
-    lv_obj_align(label, arc, LV_ALIGN_CENTER, 0, 0);
-
-}
+  }
 
 static void linemeter_anim(lv_obj_t * linemeter, lv_anim_value_t value)
-{
+  {
     lv_linemeter_set_value(linemeter, value);
 
     static char buf[64];
@@ -1355,10 +1899,10 @@ static void linemeter_anim(lv_obj_t * linemeter, lv_anim_value_t value)
     lv_obj_t * label = lv_obj_get_child(linemeter, NULL);
     lv_label_set_text(label, buf);
     lv_obj_align(label, linemeter, LV_ALIGN_CENTER, 0, 0);
-}
+  }
 
 static void gauge_anim(lv_obj_t * gauge, lv_anim_value_t value)
-{
+  {
     lv_gauge_set_value(gauge, 0, value);
 
     static char buf[64];
@@ -1366,10 +1910,10 @@ static void gauge_anim(lv_obj_t * gauge, lv_anim_value_t value)
     lv_obj_t * label = lv_obj_get_child(gauge, NULL);
     lv_label_set_text(label, buf);
     lv_obj_align(label, gauge, LV_ALIGN_IN_TOP_MID, 0, lv_obj_get_y(label));
-}
+  }
 
 static void table_event_cb(lv_obj_t * table, lv_event_t e)
-{
+  {
     if(e == LV_EVENT_CLICKED) {
         uint16_t row;
         uint16_t col;
@@ -1382,11 +1926,11 @@ static void table_event_cb(lv_obj_t * table, lv_event_t e)
             }
         }
     }
-}
+  }
 
 #if LV_USE_THEME_MATERIAL
 static void color_chg_event_cb(lv_obj_t * sw, lv_event_t e)
-{
+  {
     if(LV_THEME_DEFAULT_INIT != lv_theme_material_init) return;
     if(e == LV_EVENT_VALUE_CHANGED) {
         uint32_t flag = LV_THEME_MATERIAL_FLAG_LIGHT;
@@ -1396,7 +1940,7 @@ static void color_chg_event_cb(lv_obj_t * sw, lv_event_t e)
                 flag,
                 lv_theme_get_font_small(), lv_theme_get_font_normal(), lv_theme_get_font_subtitle(), lv_theme_get_font_title());
     }
-}
+  }
 #endif
 
 #if LV_DEMO_WIDGETS_SLIDESHOW
