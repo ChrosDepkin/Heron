@@ -423,6 +423,7 @@ typedef void * lv_indev_drv_user_data_t;            /*Type of user data in the i
 #define LV_FONT_CUSTOM_DECLARE LV_FONT_DECLARE(novamono_26)
 #define LV_FONT_CUSTOM_DECLARE LV_FONT_DECLARE(novamono_28)
 #define LV_FONT_CUSTOM_DECLARE LV_FONT_DECLARE(novamono_36)
+#define LV_FONT_CUSTOM_DECLARE LV_FONT_DECLARE(novamono_44)
 #define LV_FONT_CUSTOM_DECLARE LV_FONT_DECLARE(novamono_48)
 #define LV_FONT_CUSTOM_DECLARE LV_FONT_DECLARE(novamono_60)
 

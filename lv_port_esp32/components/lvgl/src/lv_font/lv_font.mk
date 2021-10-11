@@ -32,6 +32,7 @@ CSRCS += lv_font_unscii_16.c
 
 CSRCS += novamono_26.c
 CSRCS += novamono_28.c
+CSRCS += novamono_44.c
 CSRCS += novamono_36.c
 CSRCS += novamono_48.c
 CSRCS += novamono_60.c
