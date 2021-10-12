@@ -46,6 +46,7 @@ class TrackClass
 
     void stepInc(uint32_t& Q3buff);
     void setStep();
+    void velInc(bool direction);
 };
 
 

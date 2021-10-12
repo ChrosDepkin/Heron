@@ -18,6 +18,9 @@ extern "C" {                    // Need to put these includes in here to make it
 #include "Screen.h"
 #include "nvs_flash.h"
 #include "nvs.h"
+#include "driver/adc.h"
+#include "esp_adc_cal.h"
+#include "esp_wifi.h"
 
 void app_main(void);           // main needs to be in here too or it won't compile
 }
@@ -31,6 +34,8 @@ void app_main(void);           // main needs to be in here too or it won't compi
 #include "Sequencer.h"
 #include "Keyboard.h"
 
+#define ADCsamples 16
+
 
 // Prototypes
 void I2C_Config(void *pvParameter);
@@ -43,6 +48,7 @@ void LED(void *pvParameter);
 void Timer(void *pvParameter);
 static void BPMcallback(void* arg);
 void Sequencer_Task(void *pvParameter);
+void ADC_Task(void *pvParameter);
 
 // Queues for sending data between tasks
 QueueHandle_t Q1; // Using this to send sequencer data from key task to variable control
@@ -50,6 +56,8 @@ QueueHandle_t Q2; // Encoder to AxoVar queue
 QueueHandle_t Q3; // MIDI queue
 QueueHandle_t Q4; // Track note assignment queue
 QueueHandle_t Q5; // Encoders to Screen queue
+QueueHandle_t Q6; // Screen save queue
+QueueHandle_t Q7; // ADC queue
 
 // Global Variables
 uint8_t bank = 0; // Currently selected bank
@@ -91,6 +99,7 @@ void app_main(void)
     TaskHandle_t Key = NULL;
     TaskHandle_t varCtrl = NULL;
     TaskHandle_t Timers = NULL;
+    TaskHandle_t ADC = NULL;
 
 
     Q1 = xQueueCreate(8, sizeof(uint16_t)); // Create a queue 8 items long (chose arbitrarily) each item 16 bits long
@@ -98,8 +107,11 @@ void app_main(void)
     Q3 = xQueueCreate(64, sizeof(uint32_t));
     Q4 = xQueueCreate(8, sizeof(uint16_t));
     Q5 = xQueueCreate(8, sizeof(uint64_t));
-
+    Q6 = xQueueCreate(8, sizeof(uint8_t));
+    Q7 = xQueueCreate(8, sizeof(uint32_t));
     
+    esp_wifi_stop();
+    esp_wifi_deinit();
 
     // Create each task for the OS
     xTaskCreate(I2C_Config, "I2Cconfig", 2048, NULL, 8, &I2Cconfig);
@@ -108,7 +120,8 @@ void app_main(void)
     xTaskCreate(Key_Task, "KeyTask", 2048, NULL, 4, &Key);
     xTaskCreate(varControl, "VarControl", 4096, NULL, 5, &varCtrl);
     xTaskCreate(Timer, "TimerTask", 2048, NULL, 2, &Timers); // Timer itself is called as an interrupt, so timer task doesn't need a high priority
-    xTaskCreate(MIDI_Task, "LEDtask", 2048, NULL, 5, &MIDI);
+    xTaskCreate(MIDI_Task, "MIDItask", 2048, NULL, 5, &MIDI);
+    xTaskCreatePinnedToCore(ADC_Task, "ADCtask", 2048, NULL, 2, &ADC, 1);
     xTaskCreatePinnedToCore(guiTask, "gui", 4096*2, NULL, 6, NULL, 0);
     xTaskCreatePinnedToCore(LED, "LEDtask", 2048, NULL, 7, &LEDs, 1);
     // Pass in Function - Name (just for debug)- Stack size - Parameters - Priority - Handle
@@ -134,6 +147,57 @@ static void BPMcallback(void* arg)
         }
     BPMflag = !BPMflag;
     
+}
+
+void ADC_Task(void *pvParameter)
+{
+    uint32_t Q7buff = 0;
+    TickType_t xDelay = 75 / portTICK_PERIOD_MS;
+    
+    int joyX = 0;
+    int joyY = 0;
+    int sliderL = 0;
+    int sliderLt = 0;
+    int sliderR = 0;
+    int sliderRt = 0;
+    adc1_config_width(ADC_WIDTH_BIT_9);
+    adc1_config_channel_atten(ADC1_CHANNEL_0, ADC_ATTEN_DB_11); // Joy Y
+    adc1_config_channel_atten(ADC1_CHANNEL_3, ADC_ATTEN_DB_11); // Joy X
+    adc2_config_channel_atten(ADC2_CHANNEL_7, ADC_ATTEN_DB_11); // Slider L
+    adc2_config_channel_atten(ADC2_CHANNEL_9, ADC_ATTEN_DB_11); // Slider R
+
+    for(;;)
+    {
+        joyX = 0;
+        joyY = 0;
+        sliderL = 0;
+        sliderLt = 0;
+        sliderR = 0;
+        sliderRt = 0;
+        for (int i = 0; i < ADCsamples; i++)
+        {
+            joyY += adc1_get_raw(ADC1_CHANNEL_0);
+            joyX += adc1_get_raw(ADC1_CHANNEL_3);
+            adc2_get_raw(ADC2_CHANNEL_7, ADC_WIDTH_BIT_9, &sliderLt);
+            sliderL += sliderLt;
+            adc2_get_raw(ADC2_CHANNEL_9, ADC_WIDTH_BIT_9, &sliderRt);
+            sliderR += sliderRt;
+        }
+        joyX /= ADCsamples;
+        joyY /= ADCsamples;
+        sliderL /= ADCsamples;
+        sliderR /= ADCsamples;
+        
+        joyY /= 4;
+        joyX = ((~joyX)&0x1FF)/4;
+        sliderL = ((~sliderL)&0x1FF)/4;
+        sliderR = ((~sliderR)&0x1FF)/4;
+        
+        Q7buff = sliderL | (sliderR << 8) | (joyX << 16) | (joyY << 24);
+        xQueueSend(Q7,&Q7buff,10);
+        vTaskDelay(xDelay);
+    }
+
 }
 
 void Timer(void *pvParameter)
@@ -263,7 +327,7 @@ void Encoder_Task(void *pvParameter)
     /*********Task Loop***********/
         MCP_E.encoderRead(); // Read encoder values
 
-        if(mode != 1) // Mode 1 is BPM mode
+        if((mode == 0) | (mode == 2) | (mode == 4))
         {
             for (int i = 0; i < 8; i++)
             {
@@ -304,6 +368,21 @@ void Encoder_Task(void *pvParameter)
             else   
                 keyboardVel = velP;
         }
+
+        else if(mode == 3)
+        {
+            if(MCP_E.Turn[0] == 1)
+                {
+                    Q2buff = VELCOM | (1 << 9) | 1; // Increment command, encoder 'i', value 1 (inc)
+                    xQueueSend(Q2,&Q2buff,10);
+                }
+            else if(MCP_E.Turn[0] == 2)
+                {
+                    Q2buff = VELCOM | (1 << 9) | 2; // Increment command, encoder 'i', value 2 (dec)
+                    xQueueSend(Q2,&Q2buff,10);
+                }
+            
+        }
     
     /*********Task Loop***********/
     }
@@ -318,9 +397,10 @@ void Key_Task(void *pvParameter)
     MCP_B.setup(); // Setup function for matrix expander
 
     uint16_t Q1buff; // Buffer for queue 1
-    uint32_t Q3buff; // Buffer for queue 1
+    uint32_t Q3buff; // Buffer for queue 3
     uint16_t Q4buff; // Buffer for queue 4
-    uint8_t Q5buff; // Buffer for queue 5
+ 
+
 
 
     Notes notes[96];
@@ -328,7 +408,7 @@ void Key_Task(void *pvParameter)
     uint8_t modeChange = 0;
     uint8_t check = 1;
 
-    TickType_t xDelay = 100 / portTICK_PERIOD_MS; // 100ms delay (will dial this in)
+    TickType_t xDelay = 75 / portTICK_PERIOD_MS; // 100ms delay (will dial this in)
 
     // Set up the notes with MIDI note values starting at C1
     int count = 0;
@@ -691,8 +771,10 @@ void varControl(void *pvParameter)
     uint32_t Q3buff = 0;
     uint32_t Q4buff = 0;
     uint64_t Q5buff = 0;
+    uint8_t Q6buff = 0;
+    uint32_t Q7buff = 0;
 
-    axoVar banks[4][8]; // 2D array - 4 banks of 8 encoders
+    axoVar banks[4][12]; // 2D array - 4 banks of 8 encoders, 2 sliders, 2 joystick axes
     TrackClass tracks[4][2]; // 4 banks of 2 tracks
 
 
@@ -709,7 +791,25 @@ void varControl(void *pvParameter)
     tracks[3][1].d2 = 64; // Velocity 64
     tracks[3][1].tB = 3;
 
-    
+    banks[0][8].CC = 124;
+    banks[0][9].CC = 125;
+    banks[0][10].CC = 126;
+    banks[0][11].CC = 127;
+    banks[1][8].CC = 124;
+    banks[1][9].CC = 125;
+    banks[1][10].CC = 126;
+    banks[1][11].CC = 127;
+    banks[2][8].CC = 124;
+    banks[2][9].CC = 125;
+    banks[2][10].CC = 126;
+    banks[2][11].CC = 127;
+    banks[3][8].CC = 124;
+    banks[3][9].CC = 125;
+    banks[3][10].CC = 126;
+    banks[3][11].CC = 127;
+
+    nvs_flash_init();
+    nvs_handle storage_handle;
 
 
     // Variables for deconstructing queue messages
@@ -724,15 +824,12 @@ void varControl(void *pvParameter)
     // Commands - 00, write raw value
     //          - 01, inc/decrement value (0/1 -/+)
     //          - 10, change CC value
-    //          - 11, unused
+    //          - 11, inc/decrement velocity (0/1 -/+)
     // Top bit is set on any message (as an all 0 message would otherwise be valid)
     for(;;)
     {
     /*********Task Loop***********/
-        /*Q5buff = 0;
-        Q5buff = (banks[bank][7].val) | ((uint64_t)banks[bank][5].val << 8) | ((uint64_t)banks[bank][3].val << 16) | ((uint64_t)banks[bank][1].val << 24) | ((uint64_t)banks[bank][6].val << 32) | ((uint64_t)banks[bank][4].val << 40) | ((uint64_t)banks[bank][2].val << 48) | ((uint64_t)banks[bank][0].val << 56);
-        xQueueSend(Q5,&Q5buff,10);
-        taskYIELD();*/
+
 
         arcValues[0] = banks[bank][7].val;
         arcValues[1] = banks[bank][5].val;
@@ -756,6 +853,8 @@ void varControl(void *pvParameter)
         xQueueReceive(Q1,(void *) &Q1buff,10); // Get the data from queue
         xQueueReceive(Q2,(void *) &Q2buff,10);
         xQueueReceive(Q4,(void *) &Q4buff,10);
+        xQueueReceive(Q6,(void *) &Q6buff,10);
+        xQueueReceive(Q7,(void *) &Q7buff,10);
 
         enc = (Q2buff & ENCMASK) >> 9; 
         com = (Q2buff & COMMASK) >> 7;
@@ -905,9 +1004,1113 @@ void varControl(void *pvParameter)
                 banks[bank][enc].CC = vlu;
             }
             else if(com == 0b11)
-            {}
+            {
+                if(vlu == 1){tracks[track][1].velInc(1);}
+                if(vlu == 2){tracks[track][1].velInc(0);}
+            }
 
             Q2buff = 0; // Clear the buffer or it'll keep repeating the same command           
+        }
+        if(Q7buff != 0x0F000000)
+            {
+                if(banks[bank][8].val != (Q7buff & 0xFF))
+                {
+                    banks[bank][8].val = Q7buff & 0xFF; 
+                    Q3buff = 0;
+                    Q3buff = CTRLCHANGE | (banks[bank][8].CC << 8) | (banks[bank][8].val << 16);
+                    xQueueSend(Q3,&Q3buff,10);
+                    vTaskResume(MIDI);
+                }
+                if(banks[bank][9].val != ((Q7buff >> 8) & 0xFF))
+                {
+                    banks[bank][9].val = (Q7buff >> 8) & 0xFF;
+                    Q3buff = 0;
+                    Q3buff = CTRLCHANGE | (banks[bank][9].CC << 8) | (banks[bank][9].val << 16);
+                    xQueueSend(Q3,&Q3buff,10);
+                    vTaskResume(MIDI);
+                }
+                if(banks[bank][10].val != ((Q7buff >> 16) & 0xFF))
+                {
+                    banks[bank][10].val = (Q7buff >> 16) & 0xFF;
+                    Q3buff = 0;
+                    Q3buff = CTRLCHANGE | (banks[bank][10].CC << 8) | (banks[bank][10].val << 16);
+                    xQueueSend(Q3,&Q3buff,10);
+                    vTaskResume(MIDI);
+                }
+                if(banks[bank][11].val != ((Q7buff >> 24) & 0xFF))
+                {
+                    banks[bank][11].val = (Q7buff >> 24) & 0xFF;
+                    Q3buff = 0;
+                    Q3buff = CTRLCHANGE | (banks[bank][11].CC << 8) | (banks[bank][11].val << 16);
+                    xQueueSend(Q3,&Q3buff,10);
+                    vTaskResume(MIDI);
+                }
+                Q7buff = 0x0F000000;
+            }
+        
+
+
+        if(Q6buff)//Save/Load/Clear command
+        {
+            if((Q6buff & 0b11000000) == 0b01000000) // Save
+            {
+                if((Q6buff & 0b00001111) == 1)
+                {
+                    nvs_open("CC_Storage", NVS_READWRITE, &storage_handle);
+
+                    nvs_set_u8(storage_handle, "P1B0E0", banks[0][0].CC);
+                    nvs_set_u8(storage_handle, "P1B0E1", banks[0][1].CC);
+                    nvs_set_u8(storage_handle, "P1B0E2", banks[0][2].CC);
+                    nvs_set_u8(storage_handle, "P1B0E3", banks[0][3].CC);
+                    nvs_set_u8(storage_handle, "P1B0E4", banks[0][4].CC);
+                    nvs_set_u8(storage_handle, "P1B0E5", banks[0][5].CC);
+                    nvs_set_u8(storage_handle, "P1B0E6", banks[0][6].CC);
+                    nvs_set_u8(storage_handle, "P1B0E7", banks[0][7].CC);
+      
+                    nvs_set_u8(storage_handle, "P1B1E0", banks[1][0].CC);
+                    nvs_set_u8(storage_handle, "P1B1E1", banks[1][1].CC);
+                    nvs_set_u8(storage_handle, "P1B1E2", banks[1][2].CC);
+                    nvs_set_u8(storage_handle, "P1B1E3", banks[1][3].CC);
+                    nvs_set_u8(storage_handle, "P1B1E4", banks[1][4].CC);
+                    nvs_set_u8(storage_handle, "P1B1E5", banks[1][5].CC);
+                    nvs_set_u8(storage_handle, "P1B1E6", banks[1][6].CC);
+                    nvs_set_u8(storage_handle, "P1B1E7", banks[1][7].CC);
+      
+                    nvs_set_u8(storage_handle, "P1B2E0", banks[2][0].CC);
+                    nvs_set_u8(storage_handle, "P1B2E1", banks[2][1].CC);
+                    nvs_set_u8(storage_handle, "P1B2E2", banks[2][2].CC);
+                    nvs_set_u8(storage_handle, "P1B2E3", banks[2][3].CC);
+                    nvs_set_u8(storage_handle, "P1B2E4", banks[2][4].CC);
+                    nvs_set_u8(storage_handle, "P1B2E5", banks[2][5].CC);
+                    nvs_set_u8(storage_handle, "P1B2E6", banks[2][6].CC);
+                    nvs_set_u8(storage_handle, "P1B2E7", banks[2][7].CC);
+      
+                    nvs_set_u8(storage_handle, "P1B3E0", banks[3][0].CC);
+                    nvs_set_u8(storage_handle, "P1B3E1", banks[3][1].CC);
+                    nvs_set_u8(storage_handle, "P1B3E2", banks[3][2].CC);
+                    nvs_set_u8(storage_handle, "P1B3E3", banks[3][3].CC);
+                    nvs_set_u8(storage_handle, "P1B3E4", banks[3][4].CC);
+                    nvs_set_u8(storage_handle, "P1B3E5", banks[3][5].CC);
+                    nvs_set_u8(storage_handle, "P1B3E6", banks[3][6].CC);
+                    nvs_set_u8(storage_handle, "P1B3E7", banks[3][7].CC);
+
+                    nvs_commit(storage_handle);
+                    nvs_close(storage_handle);
+                }
+
+                if((Q6buff & 0b00001111) == 2)
+                {
+                    nvs_open("CC_Storage", NVS_READWRITE, &storage_handle);
+
+                    nvs_set_u8(storage_handle, "P2B0E0", banks[0][0].CC);
+                    nvs_set_u8(storage_handle, "P2B0E1", banks[0][1].CC);
+                    nvs_set_u8(storage_handle, "P2B0E2", banks[0][2].CC);
+                    nvs_set_u8(storage_handle, "P2B0E3", banks[0][3].CC);
+                    nvs_set_u8(storage_handle, "P2B0E4", banks[0][4].CC);
+                    nvs_set_u8(storage_handle, "P2B0E5", banks[0][5].CC);
+                    nvs_set_u8(storage_handle, "P2B0E6", banks[0][6].CC);
+                    nvs_set_u8(storage_handle, "P2B0E7", banks[0][7].CC);
+      
+                    nvs_set_u8(storage_handle, "P2B1E0", banks[1][0].CC);
+                    nvs_set_u8(storage_handle, "P2B1E1", banks[1][1].CC);
+                    nvs_set_u8(storage_handle, "P2B1E2", banks[1][2].CC);
+                    nvs_set_u8(storage_handle, "P2B1E3", banks[1][3].CC);
+                    nvs_set_u8(storage_handle, "P2B1E4", banks[1][4].CC);
+                    nvs_set_u8(storage_handle, "P2B1E5", banks[1][5].CC);
+                    nvs_set_u8(storage_handle, "P2B1E6", banks[1][6].CC);
+                    nvs_set_u8(storage_handle, "P2B1E7", banks[1][7].CC);
+      
+                    nvs_set_u8(storage_handle, "P2B2E0", banks[2][0].CC);
+                    nvs_set_u8(storage_handle, "P2B2E1", banks[2][1].CC);
+                    nvs_set_u8(storage_handle, "P2B2E2", banks[2][2].CC);
+                    nvs_set_u8(storage_handle, "P2B2E3", banks[2][3].CC);
+                    nvs_set_u8(storage_handle, "P2B2E4", banks[2][4].CC);
+                    nvs_set_u8(storage_handle, "P2B2E5", banks[2][5].CC);
+                    nvs_set_u8(storage_handle, "P2B2E6", banks[2][6].CC);
+                    nvs_set_u8(storage_handle, "P2B2E7", banks[2][7].CC);
+      
+                    nvs_set_u8(storage_handle, "P2B3E0", banks[3][0].CC);
+                    nvs_set_u8(storage_handle, "P2B3E1", banks[3][1].CC);
+                    nvs_set_u8(storage_handle, "P2B3E2", banks[3][2].CC);
+                    nvs_set_u8(storage_handle, "P2B3E3", banks[3][3].CC);
+                    nvs_set_u8(storage_handle, "P2B3E4", banks[3][4].CC);
+                    nvs_set_u8(storage_handle, "P2B3E5", banks[3][5].CC);
+                    nvs_set_u8(storage_handle, "P2B3E6", banks[3][6].CC);
+                    nvs_set_u8(storage_handle, "P2B3E7", banks[3][7].CC);
+
+                    nvs_commit(storage_handle);
+                    nvs_close(storage_handle);
+                }
+
+                if((Q6buff & 0b00001111) == 3)
+                {
+                    nvs_open("CC_Storage", NVS_READWRITE, &storage_handle);
+
+                    nvs_set_u8(storage_handle, "P3B0E0", banks[0][0].CC);
+                    nvs_set_u8(storage_handle, "P3B0E1", banks[0][1].CC);
+                    nvs_set_u8(storage_handle, "P3B0E2", banks[0][2].CC);
+                    nvs_set_u8(storage_handle, "P3B0E3", banks[0][3].CC);
+                    nvs_set_u8(storage_handle, "P3B0E4", banks[0][4].CC);
+                    nvs_set_u8(storage_handle, "P3B0E5", banks[0][5].CC);
+                    nvs_set_u8(storage_handle, "P3B0E6", banks[0][6].CC);
+                    nvs_set_u8(storage_handle, "P3B0E7", banks[0][7].CC);
+      
+                    nvs_set_u8(storage_handle, "P3B1E0", banks[1][0].CC);
+                    nvs_set_u8(storage_handle, "P3B1E1", banks[1][1].CC);
+                    nvs_set_u8(storage_handle, "P3B1E2", banks[1][2].CC);
+                    nvs_set_u8(storage_handle, "P3B1E3", banks[1][3].CC);
+                    nvs_set_u8(storage_handle, "P3B1E4", banks[1][4].CC);
+                    nvs_set_u8(storage_handle, "P3B1E5", banks[1][5].CC);
+                    nvs_set_u8(storage_handle, "P3B1E6", banks[1][6].CC);
+                    nvs_set_u8(storage_handle, "P3B1E7", banks[1][7].CC);
+      
+                    nvs_set_u8(storage_handle, "P3B2E0", banks[2][0].CC);
+                    nvs_set_u8(storage_handle, "P3B2E1", banks[2][1].CC);
+                    nvs_set_u8(storage_handle, "P3B2E2", banks[2][2].CC);
+                    nvs_set_u8(storage_handle, "P3B2E3", banks[2][3].CC);
+                    nvs_set_u8(storage_handle, "P3B2E4", banks[2][4].CC);
+                    nvs_set_u8(storage_handle, "P3B2E5", banks[2][5].CC);
+                    nvs_set_u8(storage_handle, "P3B2E6", banks[2][6].CC);
+                    nvs_set_u8(storage_handle, "P3B2E7", banks[2][7].CC);
+      
+                    nvs_set_u8(storage_handle, "P3B3E0", banks[3][0].CC);
+                    nvs_set_u8(storage_handle, "P3B3E1", banks[3][1].CC);
+                    nvs_set_u8(storage_handle, "P3B3E2", banks[3][2].CC);
+                    nvs_set_u8(storage_handle, "P3B3E3", banks[3][3].CC);
+                    nvs_set_u8(storage_handle, "P3B3E4", banks[3][4].CC);
+                    nvs_set_u8(storage_handle, "P3B3E5", banks[3][5].CC);
+                    nvs_set_u8(storage_handle, "P3B3E6", banks[3][6].CC);
+                    nvs_set_u8(storage_handle, "P3B3E7", banks[3][7].CC);
+
+                    nvs_commit(storage_handle);
+                    nvs_close(storage_handle);
+                }
+
+                if((Q6buff & 0b00001111) == 4)
+                {
+                    nvs_open("CC_Storage", NVS_READWRITE, &storage_handle);
+
+                    nvs_set_u8(storage_handle, "P4B0E0", banks[0][0].CC);
+                    nvs_set_u8(storage_handle, "P4B0E1", banks[0][1].CC);
+                    nvs_set_u8(storage_handle, "P4B0E2", banks[0][2].CC);
+                    nvs_set_u8(storage_handle, "P4B0E3", banks[0][3].CC);
+                    nvs_set_u8(storage_handle, "P4B0E4", banks[0][4].CC);
+                    nvs_set_u8(storage_handle, "P4B0E5", banks[0][5].CC);
+                    nvs_set_u8(storage_handle, "P4B0E6", banks[0][6].CC);
+                    nvs_set_u8(storage_handle, "P4B0E7", banks[0][7].CC);
+      
+                    nvs_set_u8(storage_handle, "P4B1E0", banks[1][0].CC);
+                    nvs_set_u8(storage_handle, "P4B1E1", banks[1][1].CC);
+                    nvs_set_u8(storage_handle, "P4B1E2", banks[1][2].CC);
+                    nvs_set_u8(storage_handle, "P4B1E3", banks[1][3].CC);
+                    nvs_set_u8(storage_handle, "P4B1E4", banks[1][4].CC);
+                    nvs_set_u8(storage_handle, "P4B1E5", banks[1][5].CC);
+                    nvs_set_u8(storage_handle, "P4B1E6", banks[1][6].CC);
+                    nvs_set_u8(storage_handle, "P4B1E7", banks[1][7].CC);
+      
+                    nvs_set_u8(storage_handle, "P4B2E0", banks[2][0].CC);
+                    nvs_set_u8(storage_handle, "P4B2E1", banks[2][1].CC);
+                    nvs_set_u8(storage_handle, "P4B2E2", banks[2][2].CC);
+                    nvs_set_u8(storage_handle, "P4B2E3", banks[2][3].CC);
+                    nvs_set_u8(storage_handle, "P4B2E4", banks[2][4].CC);
+                    nvs_set_u8(storage_handle, "P4B2E5", banks[2][5].CC);
+                    nvs_set_u8(storage_handle, "P4B2E6", banks[2][6].CC);
+                    nvs_set_u8(storage_handle, "P4B2E7", banks[2][7].CC);
+      
+                    nvs_set_u8(storage_handle, "P4B3E0", banks[3][0].CC);
+                    nvs_set_u8(storage_handle, "P4B3E1", banks[3][1].CC);
+                    nvs_set_u8(storage_handle, "P4B3E2", banks[3][2].CC);
+                    nvs_set_u8(storage_handle, "P4B3E3", banks[3][3].CC);
+                    nvs_set_u8(storage_handle, "P4B3E4", banks[3][4].CC);
+                    nvs_set_u8(storage_handle, "P4B3E5", banks[3][5].CC);
+                    nvs_set_u8(storage_handle, "P4B3E6", banks[3][6].CC);
+                    nvs_set_u8(storage_handle, "P4B3E7", banks[3][7].CC);
+
+                    nvs_commit(storage_handle);
+                    nvs_close(storage_handle);
+                }
+
+                if((Q6buff & 0b00001111) == 5)
+                {
+                    nvs_open("CC_Storage", NVS_READWRITE, &storage_handle);
+
+                    nvs_set_u8(storage_handle, "P5B0E0", banks[0][0].CC);
+                    nvs_set_u8(storage_handle, "P5B0E1", banks[0][1].CC);
+                    nvs_set_u8(storage_handle, "P5B0E2", banks[0][2].CC);
+                    nvs_set_u8(storage_handle, "P5B0E3", banks[0][3].CC);
+                    nvs_set_u8(storage_handle, "P5B0E4", banks[0][4].CC);
+                    nvs_set_u8(storage_handle, "P5B0E5", banks[0][5].CC);
+                    nvs_set_u8(storage_handle, "P5B0E6", banks[0][6].CC);
+                    nvs_set_u8(storage_handle, "P5B0E7", banks[0][7].CC);
+      
+                    nvs_set_u8(storage_handle, "P5B1E0", banks[1][0].CC);
+                    nvs_set_u8(storage_handle, "P5B1E1", banks[1][1].CC);
+                    nvs_set_u8(storage_handle, "P5B1E2", banks[1][2].CC);
+                    nvs_set_u8(storage_handle, "P5B1E3", banks[1][3].CC);
+                    nvs_set_u8(storage_handle, "P5B1E4", banks[1][4].CC);
+                    nvs_set_u8(storage_handle, "P5B1E5", banks[1][5].CC);
+                    nvs_set_u8(storage_handle, "P5B1E6", banks[1][6].CC);
+                    nvs_set_u8(storage_handle, "P5B1E7", banks[1][7].CC);
+      
+                    nvs_set_u8(storage_handle, "P5B2E0", banks[2][0].CC);
+                    nvs_set_u8(storage_handle, "P5B2E1", banks[2][1].CC);
+                    nvs_set_u8(storage_handle, "P5B2E2", banks[2][2].CC);
+                    nvs_set_u8(storage_handle, "P5B2E3", banks[2][3].CC);
+                    nvs_set_u8(storage_handle, "P5B2E4", banks[2][4].CC);
+                    nvs_set_u8(storage_handle, "P5B2E5", banks[2][5].CC);
+                    nvs_set_u8(storage_handle, "P5B2E6", banks[2][6].CC);
+                    nvs_set_u8(storage_handle, "P5B2E7", banks[2][7].CC);
+      
+                    nvs_set_u8(storage_handle, "P5B3E0", banks[3][0].CC);
+                    nvs_set_u8(storage_handle, "P5B3E1", banks[3][1].CC);
+                    nvs_set_u8(storage_handle, "P5B3E2", banks[3][2].CC);
+                    nvs_set_u8(storage_handle, "P5B3E3", banks[3][3].CC);
+                    nvs_set_u8(storage_handle, "P5B3E4", banks[3][4].CC);
+                    nvs_set_u8(storage_handle, "P5B3E5", banks[3][5].CC);
+                    nvs_set_u8(storage_handle, "P5B3E6", banks[3][6].CC);
+                    nvs_set_u8(storage_handle, "P5B3E7", banks[3][7].CC);
+
+                    nvs_commit(storage_handle);
+                    nvs_close(storage_handle);
+                }
+
+                if((Q6buff & 0b00001111) == 6)
+                {
+                    nvs_open("CC_Storage", NVS_READWRITE, &storage_handle);
+
+                    nvs_set_u8(storage_handle, "P6B0E0", banks[0][0].CC);
+                    nvs_set_u8(storage_handle, "P6B0E1", banks[0][1].CC);
+                    nvs_set_u8(storage_handle, "P6B0E2", banks[0][2].CC);
+                    nvs_set_u8(storage_handle, "P6B0E3", banks[0][3].CC);
+                    nvs_set_u8(storage_handle, "P6B0E4", banks[0][4].CC);
+                    nvs_set_u8(storage_handle, "P6B0E5", banks[0][5].CC);
+                    nvs_set_u8(storage_handle, "P6B0E6", banks[0][6].CC);
+                    nvs_set_u8(storage_handle, "P6B0E7", banks[0][7].CC);
+      
+                    nvs_set_u8(storage_handle, "P6B1E0", banks[1][0].CC);
+                    nvs_set_u8(storage_handle, "P6B1E1", banks[1][1].CC);
+                    nvs_set_u8(storage_handle, "P6B1E2", banks[1][2].CC);
+                    nvs_set_u8(storage_handle, "P6B1E3", banks[1][3].CC);
+                    nvs_set_u8(storage_handle, "P6B1E4", banks[1][4].CC);
+                    nvs_set_u8(storage_handle, "P6B1E5", banks[1][5].CC);
+                    nvs_set_u8(storage_handle, "P6B1E6", banks[1][6].CC);
+                    nvs_set_u8(storage_handle, "P6B1E7", banks[1][7].CC);
+      
+                    nvs_set_u8(storage_handle, "P6B2E0", banks[2][0].CC);
+                    nvs_set_u8(storage_handle, "P6B2E1", banks[2][1].CC);
+                    nvs_set_u8(storage_handle, "P6B2E2", banks[2][2].CC);
+                    nvs_set_u8(storage_handle, "P6B2E3", banks[2][3].CC);
+                    nvs_set_u8(storage_handle, "P6B2E4", banks[2][4].CC);
+                    nvs_set_u8(storage_handle, "P6B2E5", banks[2][5].CC);
+                    nvs_set_u8(storage_handle, "P6B2E6", banks[2][6].CC);
+                    nvs_set_u8(storage_handle, "P6B2E7", banks[2][7].CC);
+      
+                    nvs_set_u8(storage_handle, "P6B3E0", banks[3][0].CC);
+                    nvs_set_u8(storage_handle, "P6B3E1", banks[3][1].CC);
+                    nvs_set_u8(storage_handle, "P6B3E2", banks[3][2].CC);
+                    nvs_set_u8(storage_handle, "P6B3E3", banks[3][3].CC);
+                    nvs_set_u8(storage_handle, "P6B3E4", banks[3][4].CC);
+                    nvs_set_u8(storage_handle, "P6B3E5", banks[3][5].CC);
+                    nvs_set_u8(storage_handle, "P6B3E6", banks[3][6].CC);
+                    nvs_set_u8(storage_handle, "P6B3E7", banks[3][7].CC);
+
+                    nvs_commit(storage_handle);
+                    nvs_close(storage_handle);
+                }
+
+                if((Q6buff & 0b00001111) == 7)
+                {
+                    nvs_open("CC_Storage", NVS_READWRITE, &storage_handle);
+
+                    nvs_set_u8(storage_handle, "P7B0E0", banks[0][0].CC);
+                    nvs_set_u8(storage_handle, "P7B0E1", banks[0][1].CC);
+                    nvs_set_u8(storage_handle, "P7B0E2", banks[0][2].CC);
+                    nvs_set_u8(storage_handle, "P7B0E3", banks[0][3].CC);
+                    nvs_set_u8(storage_handle, "P7B0E4", banks[0][4].CC);
+                    nvs_set_u8(storage_handle, "P7B0E5", banks[0][5].CC);
+                    nvs_set_u8(storage_handle, "P7B0E6", banks[0][6].CC);
+                    nvs_set_u8(storage_handle, "P7B0E7", banks[0][7].CC);
+      
+                    nvs_set_u8(storage_handle, "P7B1E0", banks[1][0].CC);
+                    nvs_set_u8(storage_handle, "P7B1E1", banks[1][1].CC);
+                    nvs_set_u8(storage_handle, "P7B1E2", banks[1][2].CC);
+                    nvs_set_u8(storage_handle, "P7B1E3", banks[1][3].CC);
+                    nvs_set_u8(storage_handle, "P7B1E4", banks[1][4].CC);
+                    nvs_set_u8(storage_handle, "P7B1E5", banks[1][5].CC);
+                    nvs_set_u8(storage_handle, "P7B1E6", banks[1][6].CC);
+                    nvs_set_u8(storage_handle, "P7B1E7", banks[1][7].CC);
+      
+                    nvs_set_u8(storage_handle, "P7B2E0", banks[2][0].CC);
+                    nvs_set_u8(storage_handle, "P7B2E1", banks[2][1].CC);
+                    nvs_set_u8(storage_handle, "P7B2E2", banks[2][2].CC);
+                    nvs_set_u8(storage_handle, "P7B2E3", banks[2][3].CC);
+                    nvs_set_u8(storage_handle, "P7B2E4", banks[2][4].CC);
+                    nvs_set_u8(storage_handle, "P7B2E5", banks[2][5].CC);
+                    nvs_set_u8(storage_handle, "P7B2E6", banks[2][6].CC);
+                    nvs_set_u8(storage_handle, "P7B2E7", banks[2][7].CC);
+      
+                    nvs_set_u8(storage_handle, "P7B3E0", banks[3][0].CC);
+                    nvs_set_u8(storage_handle, "P7B3E1", banks[3][1].CC);
+                    nvs_set_u8(storage_handle, "P7B3E2", banks[3][2].CC);
+                    nvs_set_u8(storage_handle, "P7B3E3", banks[3][3].CC);
+                    nvs_set_u8(storage_handle, "P7B3E4", banks[3][4].CC);
+                    nvs_set_u8(storage_handle, "P7B3E5", banks[3][5].CC);
+                    nvs_set_u8(storage_handle, "P7B3E6", banks[3][6].CC);
+                    nvs_set_u8(storage_handle, "P7B3E7", banks[3][7].CC);
+
+                    nvs_commit(storage_handle);
+                    nvs_close(storage_handle);
+                }
+
+                if((Q6buff & 0b00001111) == 8)
+                {
+                    nvs_open("CC_Storage", NVS_READWRITE, &storage_handle);
+
+                    nvs_set_u8(storage_handle, "P8B0E0", banks[0][0].CC);
+                    nvs_set_u8(storage_handle, "P8B0E1", banks[0][1].CC);
+                    nvs_set_u8(storage_handle, "P8B0E2", banks[0][2].CC);
+                    nvs_set_u8(storage_handle, "P8B0E3", banks[0][3].CC);
+                    nvs_set_u8(storage_handle, "P8B0E4", banks[0][4].CC);
+                    nvs_set_u8(storage_handle, "P8B0E5", banks[0][5].CC);
+                    nvs_set_u8(storage_handle, "P8B0E6", banks[0][6].CC);
+                    nvs_set_u8(storage_handle, "P8B0E7", banks[0][7].CC);
+      
+                    nvs_set_u8(storage_handle, "P8B1E0", banks[1][0].CC);
+                    nvs_set_u8(storage_handle, "P8B1E1", banks[1][1].CC);
+                    nvs_set_u8(storage_handle, "P8B1E2", banks[1][2].CC);
+                    nvs_set_u8(storage_handle, "P8B1E3", banks[1][3].CC);
+                    nvs_set_u8(storage_handle, "P8B1E4", banks[1][4].CC);
+                    nvs_set_u8(storage_handle, "P8B1E5", banks[1][5].CC);
+                    nvs_set_u8(storage_handle, "P8B1E6", banks[1][6].CC);
+                    nvs_set_u8(storage_handle, "P8B1E7", banks[1][7].CC);
+      
+                    nvs_set_u8(storage_handle, "P8B2E0", banks[2][0].CC);
+                    nvs_set_u8(storage_handle, "P8B2E1", banks[2][1].CC);
+                    nvs_set_u8(storage_handle, "P8B2E2", banks[2][2].CC);
+                    nvs_set_u8(storage_handle, "P8B2E3", banks[2][3].CC);
+                    nvs_set_u8(storage_handle, "P8B2E4", banks[2][4].CC);
+                    nvs_set_u8(storage_handle, "P8B2E5", banks[2][5].CC);
+                    nvs_set_u8(storage_handle, "P8B2E6", banks[2][6].CC);
+                    nvs_set_u8(storage_handle, "P8B2E7", banks[2][7].CC);
+      
+                    nvs_set_u8(storage_handle, "P8B3E0", banks[3][0].CC);
+                    nvs_set_u8(storage_handle, "P8B3E1", banks[3][1].CC);
+                    nvs_set_u8(storage_handle, "P8B3E2", banks[3][2].CC);
+                    nvs_set_u8(storage_handle, "P8B3E3", banks[3][3].CC);
+                    nvs_set_u8(storage_handle, "P8B3E4", banks[3][4].CC);
+                    nvs_set_u8(storage_handle, "P8B3E5", banks[3][5].CC);
+                    nvs_set_u8(storage_handle, "P8B3E6", banks[3][6].CC);
+                    nvs_set_u8(storage_handle, "P8B3E7", banks[3][7].CC);
+
+                    nvs_commit(storage_handle);
+                    nvs_close(storage_handle);
+                }
+                
+            }
+
+            else if((Q6buff & 0b11000000) == 0b10000000) // Load
+            {
+                if((Q6buff & 0b00001111) == 1)
+                {
+                    nvs_open("CC_Storage", NVS_READWRITE, &storage_handle);
+
+                    nvs_get_u8(storage_handle, "P1B0E0", &banks[0][0].CC);
+                    nvs_get_u8(storage_handle, "P1B0E1", &banks[0][1].CC);
+                    nvs_get_u8(storage_handle, "P1B0E2", &banks[0][2].CC);
+                    nvs_get_u8(storage_handle, "P1B0E3", &banks[0][3].CC);
+                    nvs_get_u8(storage_handle, "P1B0E4", &banks[0][4].CC);
+                    nvs_get_u8(storage_handle, "P1B0E5", &banks[0][5].CC);
+                    nvs_get_u8(storage_handle, "P1B0E6", &banks[0][6].CC);
+                    nvs_get_u8(storage_handle, "P1B0E7", &banks[0][7].CC);
+  
+                    nvs_get_u8(storage_handle, "P1B1E0", &banks[1][0].CC);
+                    nvs_get_u8(storage_handle, "P1B1E1", &banks[1][1].CC);
+                    nvs_get_u8(storage_handle, "P1B1E2", &banks[1][2].CC);
+                    nvs_get_u8(storage_handle, "P1B1E3", &banks[1][3].CC);
+                    nvs_get_u8(storage_handle, "P1B1E4", &banks[1][4].CC);
+                    nvs_get_u8(storage_handle, "P1B1E5", &banks[1][5].CC);
+                    nvs_get_u8(storage_handle, "P1B1E6", &banks[1][6].CC);
+                    nvs_get_u8(storage_handle, "P1B1E7", &banks[1][7].CC);
+  
+                    nvs_get_u8(storage_handle, "P1B2E0", &banks[2][0].CC);
+                    nvs_get_u8(storage_handle, "P1B2E1", &banks[2][1].CC);
+                    nvs_get_u8(storage_handle, "P1B2E2", &banks[2][2].CC);
+                    nvs_get_u8(storage_handle, "P1B2E3", &banks[2][3].CC);
+                    nvs_get_u8(storage_handle, "P1B2E4", &banks[2][4].CC);
+                    nvs_get_u8(storage_handle, "P1B2E5", &banks[2][5].CC);
+                    nvs_get_u8(storage_handle, "P1B2E6", &banks[2][6].CC);
+                    nvs_get_u8(storage_handle, "P1B2E7", &banks[2][7].CC);
+  
+                    nvs_get_u8(storage_handle, "P1B3E0", &banks[3][0].CC);
+                    nvs_get_u8(storage_handle, "P1B3E1", &banks[3][1].CC);
+                    nvs_get_u8(storage_handle, "P1B3E2", &banks[3][2].CC);
+                    nvs_get_u8(storage_handle, "P1B3E3", &banks[3][3].CC);
+                    nvs_get_u8(storage_handle, "P1B3E4", &banks[3][4].CC);
+                    nvs_get_u8(storage_handle, "P1B3E5", &banks[3][5].CC);
+                    nvs_get_u8(storage_handle, "P1B3E6", &banks[3][6].CC);
+                    nvs_get_u8(storage_handle, "P1B3E7", &banks[3][7].CC);
+  
+                    nvs_close(storage_handle);
+                }
+  
+                if((Q6buff & 0b00001111) == 2)
+                {
+                    nvs_open("CC_Storage", NVS_READWRITE, &storage_handle);
+  
+                    nvs_get_u8(storage_handle, "P2B0E0", &banks[0][0].CC);
+                    nvs_get_u8(storage_handle, "P2B0E1", &banks[0][1].CC);
+                    nvs_get_u8(storage_handle, "P2B0E2", &banks[0][2].CC);
+                    nvs_get_u8(storage_handle, "P2B0E3", &banks[0][3].CC);
+                    nvs_get_u8(storage_handle, "P2B0E4", &banks[0][4].CC);
+                    nvs_get_u8(storage_handle, "P2B0E5", &banks[0][5].CC);
+                    nvs_get_u8(storage_handle, "P2B0E6", &banks[0][6].CC);
+                    nvs_get_u8(storage_handle, "P2B0E7", &banks[0][7].CC);
+  
+                    nvs_get_u8(storage_handle, "P2B1E0", &banks[1][0].CC);
+                    nvs_get_u8(storage_handle, "P2B1E1", &banks[1][1].CC);
+                    nvs_get_u8(storage_handle, "P2B1E2", &banks[1][2].CC);
+                    nvs_get_u8(storage_handle, "P2B1E3", &banks[1][3].CC);
+                    nvs_get_u8(storage_handle, "P2B1E4", &banks[1][4].CC);
+                    nvs_get_u8(storage_handle, "P2B1E5", &banks[1][5].CC);
+                    nvs_get_u8(storage_handle, "P2B1E6", &banks[1][6].CC);
+                    nvs_get_u8(storage_handle, "P2B1E7", &banks[1][7].CC);
+  
+                    nvs_get_u8(storage_handle, "P2B2E0", &banks[2][0].CC);
+                    nvs_get_u8(storage_handle, "P2B2E1", &banks[2][1].CC);
+                    nvs_get_u8(storage_handle, "P2B2E2", &banks[2][2].CC);
+                    nvs_get_u8(storage_handle, "P2B2E3", &banks[2][3].CC);
+                    nvs_get_u8(storage_handle, "P2B2E4", &banks[2][4].CC);
+                    nvs_get_u8(storage_handle, "P2B2E5", &banks[2][5].CC);
+                    nvs_get_u8(storage_handle, "P2B2E6", &banks[2][6].CC);
+                    nvs_get_u8(storage_handle, "P2B2E7", &banks[2][7].CC);
+  
+                    nvs_get_u8(storage_handle, "P2B3E0", &banks[3][0].CC);
+                    nvs_get_u8(storage_handle, "P2B3E1", &banks[3][1].CC);
+                    nvs_get_u8(storage_handle, "P2B3E2", &banks[3][2].CC);
+                    nvs_get_u8(storage_handle, "P2B3E3", &banks[3][3].CC);
+                    nvs_get_u8(storage_handle, "P2B3E4", &banks[3][4].CC);
+                    nvs_get_u8(storage_handle, "P2B3E5", &banks[3][5].CC);
+                    nvs_get_u8(storage_handle, "P2B3E6", &banks[3][6].CC);
+                    nvs_get_u8(storage_handle, "P2B3E7", &banks[3][7].CC);
+  
+                    nvs_close(storage_handle);
+                }
+  
+                if((Q6buff & 0b00001111) == 3)
+                {
+                    nvs_open("CC_Storage", NVS_READWRITE, &storage_handle);
+  
+                    nvs_get_u8(storage_handle, "P3B0E0", &banks[0][0].CC);
+                    nvs_get_u8(storage_handle, "P3B0E1", &banks[0][1].CC);
+                    nvs_get_u8(storage_handle, "P3B0E2", &banks[0][2].CC);
+                    nvs_get_u8(storage_handle, "P3B0E3", &banks[0][3].CC);
+                    nvs_get_u8(storage_handle, "P3B0E4", &banks[0][4].CC);
+                    nvs_get_u8(storage_handle, "P3B0E5", &banks[0][5].CC);
+                    nvs_get_u8(storage_handle, "P3B0E6", &banks[0][6].CC);
+                    nvs_get_u8(storage_handle, "P3B0E7", &banks[0][7].CC);
+  
+                    nvs_get_u8(storage_handle, "P3B1E0", &banks[1][0].CC);
+                    nvs_get_u8(storage_handle, "P3B1E1", &banks[1][1].CC);
+                    nvs_get_u8(storage_handle, "P3B1E2", &banks[1][2].CC);
+                    nvs_get_u8(storage_handle, "P3B1E3", &banks[1][3].CC);
+                    nvs_get_u8(storage_handle, "P3B1E4", &banks[1][4].CC);
+                    nvs_get_u8(storage_handle, "P3B1E5", &banks[1][5].CC);
+                    nvs_get_u8(storage_handle, "P3B1E6", &banks[1][6].CC);
+                    nvs_get_u8(storage_handle, "P3B1E7", &banks[1][7].CC);
+  
+                    nvs_get_u8(storage_handle, "P3B2E0", &banks[2][0].CC);
+                    nvs_get_u8(storage_handle, "P3B2E1", &banks[2][1].CC);
+                    nvs_get_u8(storage_handle, "P3B2E2", &banks[2][2].CC);
+                    nvs_get_u8(storage_handle, "P3B2E3", &banks[2][3].CC);
+                    nvs_get_u8(storage_handle, "P3B2E4", &banks[2][4].CC);
+                    nvs_get_u8(storage_handle, "P3B2E5", &banks[2][5].CC);
+                    nvs_get_u8(storage_handle, "P3B2E6", &banks[2][6].CC);
+                    nvs_get_u8(storage_handle, "P3B2E7", &banks[2][7].CC);
+  
+                    nvs_get_u8(storage_handle, "P3B3E0", &banks[3][0].CC);
+                    nvs_get_u8(storage_handle, "P3B3E1", &banks[3][1].CC);
+                    nvs_get_u8(storage_handle, "P3B3E2", &banks[3][2].CC);
+                    nvs_get_u8(storage_handle, "P3B3E3", &banks[3][3].CC);
+                    nvs_get_u8(storage_handle, "P3B3E4", &banks[3][4].CC);
+                    nvs_get_u8(storage_handle, "P3B3E5", &banks[3][5].CC);
+                    nvs_get_u8(storage_handle, "P3B3E6", &banks[3][6].CC);
+                    nvs_get_u8(storage_handle, "P3B3E7", &banks[3][7].CC);
+  
+                    nvs_close(storage_handle);
+                }
+  
+                if((Q6buff & 0b00001111) == 4)
+                {
+                    nvs_open("CC_Storage", NVS_READWRITE, &storage_handle);
+  
+                    nvs_get_u8(storage_handle, "P4B0E0", &banks[0][0].CC);
+                    nvs_get_u8(storage_handle, "P4B0E1", &banks[0][1].CC);
+                    nvs_get_u8(storage_handle, "P4B0E2", &banks[0][2].CC);
+                    nvs_get_u8(storage_handle, "P4B0E3", &banks[0][3].CC);
+                    nvs_get_u8(storage_handle, "P4B0E4", &banks[0][4].CC);
+                    nvs_get_u8(storage_handle, "P4B0E5", &banks[0][5].CC);
+                    nvs_get_u8(storage_handle, "P4B0E6", &banks[0][6].CC);
+                    nvs_get_u8(storage_handle, "P4B0E7", &banks[0][7].CC);
+  
+                    nvs_get_u8(storage_handle, "P4B1E0", &banks[1][0].CC);
+                    nvs_get_u8(storage_handle, "P4B1E1", &banks[1][1].CC);
+                    nvs_get_u8(storage_handle, "P4B1E2", &banks[1][2].CC);
+                    nvs_get_u8(storage_handle, "P4B1E3", &banks[1][3].CC);
+                    nvs_get_u8(storage_handle, "P4B1E4", &banks[1][4].CC);
+                    nvs_get_u8(storage_handle, "P4B1E5", &banks[1][5].CC);
+                    nvs_get_u8(storage_handle, "P4B1E6", &banks[1][6].CC);
+                    nvs_get_u8(storage_handle, "P4B1E7", &banks[1][7].CC);
+  
+                    nvs_get_u8(storage_handle, "P4B2E0", &banks[2][0].CC);
+                    nvs_get_u8(storage_handle, "P4B2E1", &banks[2][1].CC);
+                    nvs_get_u8(storage_handle, "P4B2E2", &banks[2][2].CC);
+                    nvs_get_u8(storage_handle, "P4B2E3", &banks[2][3].CC);
+                    nvs_get_u8(storage_handle, "P4B2E4", &banks[2][4].CC);
+                    nvs_get_u8(storage_handle, "P4B2E5", &banks[2][5].CC);
+                    nvs_get_u8(storage_handle, "P4B2E6", &banks[2][6].CC);
+                    nvs_get_u8(storage_handle, "P4B2E7", &banks[2][7].CC);
+  
+                    nvs_get_u8(storage_handle, "P4B3E0", &banks[3][0].CC);
+                    nvs_get_u8(storage_handle, "P4B3E1", &banks[3][1].CC);
+                    nvs_get_u8(storage_handle, "P4B3E2", &banks[3][2].CC);
+                    nvs_get_u8(storage_handle, "P4B3E3", &banks[3][3].CC);
+                    nvs_get_u8(storage_handle, "P4B3E4", &banks[3][4].CC);
+                    nvs_get_u8(storage_handle, "P4B3E5", &banks[3][5].CC);
+                    nvs_get_u8(storage_handle, "P4B3E6", &banks[3][6].CC);
+                    nvs_get_u8(storage_handle, "P4B3E7", &banks[3][7].CC);
+  
+                    nvs_close(storage_handle);
+                }
+
+                if((Q6buff & 0b00001111) == 5)
+                {
+                    nvs_open("CC_Storage", NVS_READWRITE, &storage_handle);
+
+                    nvs_get_u8(storage_handle, "P5B0E0", &banks[0][0].CC);
+                    nvs_get_u8(storage_handle, "P5B0E1", &banks[0][1].CC);
+                    nvs_get_u8(storage_handle, "P5B0E2", &banks[0][2].CC);
+                    nvs_get_u8(storage_handle, "P5B0E3", &banks[0][3].CC);
+                    nvs_get_u8(storage_handle, "P5B0E4", &banks[0][4].CC);
+                    nvs_get_u8(storage_handle, "P5B0E5", &banks[0][5].CC);
+                    nvs_get_u8(storage_handle, "P5B0E6", &banks[0][6].CC);
+                    nvs_get_u8(storage_handle, "P5B0E7", &banks[0][7].CC);
+  
+                    nvs_get_u8(storage_handle, "P5B1E0", &banks[1][0].CC);
+                    nvs_get_u8(storage_handle, "P5B1E1", &banks[1][1].CC);
+                    nvs_get_u8(storage_handle, "P5B1E2", &banks[1][2].CC);
+                    nvs_get_u8(storage_handle, "P5B1E3", &banks[1][3].CC);
+                    nvs_get_u8(storage_handle, "P5B1E4", &banks[1][4].CC);
+                    nvs_get_u8(storage_handle, "P5B1E5", &banks[1][5].CC);
+                    nvs_get_u8(storage_handle, "P5B1E6", &banks[1][6].CC);
+                    nvs_get_u8(storage_handle, "P5B1E7", &banks[1][7].CC);
+  
+                    nvs_get_u8(storage_handle, "P5B2E0", &banks[2][0].CC);
+                    nvs_get_u8(storage_handle, "P5B2E1", &banks[2][1].CC);
+                    nvs_get_u8(storage_handle, "P5B2E2", &banks[2][2].CC);
+                    nvs_get_u8(storage_handle, "P5B2E3", &banks[2][3].CC);
+                    nvs_get_u8(storage_handle, "P5B2E4", &banks[2][4].CC);
+                    nvs_get_u8(storage_handle, "P5B2E5", &banks[2][5].CC);
+                    nvs_get_u8(storage_handle, "P5B2E6", &banks[2][6].CC);
+                    nvs_get_u8(storage_handle, "P5B2E7", &banks[2][7].CC);
+  
+                    nvs_get_u8(storage_handle, "P5B3E0", &banks[3][0].CC);
+                    nvs_get_u8(storage_handle, "P5B3E1", &banks[3][1].CC);
+                    nvs_get_u8(storage_handle, "P5B3E2", &banks[3][2].CC);
+                    nvs_get_u8(storage_handle, "P5B3E3", &banks[3][3].CC);
+                    nvs_get_u8(storage_handle, "P5B3E4", &banks[3][4].CC);
+                    nvs_get_u8(storage_handle, "P5B3E5", &banks[3][5].CC);
+                    nvs_get_u8(storage_handle, "P5B3E6", &banks[3][6].CC);
+                    nvs_get_u8(storage_handle, "P5B3E7", &banks[3][7].CC);
+  
+                    nvs_close(storage_handle);
+                }
+  
+                if((Q6buff & 0b00001111) == 6)
+                {
+                    nvs_open("CC_Storage", NVS_READWRITE, &storage_handle);
+  
+                    nvs_get_u8(storage_handle, "P6B0E0", &banks[0][0].CC);
+                    nvs_get_u8(storage_handle, "P6B0E1", &banks[0][1].CC);
+                    nvs_get_u8(storage_handle, "P6B0E2", &banks[0][2].CC);
+                    nvs_get_u8(storage_handle, "P6B0E3", &banks[0][3].CC);
+                    nvs_get_u8(storage_handle, "P6B0E4", &banks[0][4].CC);
+                    nvs_get_u8(storage_handle, "P6B0E5", &banks[0][5].CC);
+                    nvs_get_u8(storage_handle, "P6B0E6", &banks[0][6].CC);
+                    nvs_get_u8(storage_handle, "P6B0E7", &banks[0][7].CC);
+  
+                    nvs_get_u8(storage_handle, "P6B1E0", &banks[1][0].CC);
+                    nvs_get_u8(storage_handle, "P6B1E1", &banks[1][1].CC);
+                    nvs_get_u8(storage_handle, "P6B1E2", &banks[1][2].CC);
+                    nvs_get_u8(storage_handle, "P6B1E3", &banks[1][3].CC);
+                    nvs_get_u8(storage_handle, "P6B1E4", &banks[1][4].CC);
+                    nvs_get_u8(storage_handle, "P6B1E5", &banks[1][5].CC);
+                    nvs_get_u8(storage_handle, "P6B1E6", &banks[1][6].CC);
+                    nvs_get_u8(storage_handle, "P6B1E7", &banks[1][7].CC);
+  
+                    nvs_get_u8(storage_handle, "P6B2E0", &banks[2][0].CC);
+                    nvs_get_u8(storage_handle, "P6B2E1", &banks[2][1].CC);
+                    nvs_get_u8(storage_handle, "P6B2E2", &banks[2][2].CC);
+                    nvs_get_u8(storage_handle, "P6B2E3", &banks[2][3].CC);
+                    nvs_get_u8(storage_handle, "P6B2E4", &banks[2][4].CC);
+                    nvs_get_u8(storage_handle, "P6B2E5", &banks[2][5].CC);
+                    nvs_get_u8(storage_handle, "P6B2E6", &banks[2][6].CC);
+                    nvs_get_u8(storage_handle, "P6B2E7", &banks[2][7].CC);
+  
+                    nvs_get_u8(storage_handle, "P6B3E0", &banks[3][0].CC);
+                    nvs_get_u8(storage_handle, "P6B3E1", &banks[3][1].CC);
+                    nvs_get_u8(storage_handle, "P6B3E2", &banks[3][2].CC);
+                    nvs_get_u8(storage_handle, "P6B3E3", &banks[3][3].CC);
+                    nvs_get_u8(storage_handle, "P6B3E4", &banks[3][4].CC);
+                    nvs_get_u8(storage_handle, "P6B3E5", &banks[3][5].CC);
+                    nvs_get_u8(storage_handle, "P6B3E6", &banks[3][6].CC);
+                    nvs_get_u8(storage_handle, "P6B3E7", &banks[3][7].CC);
+  
+                    nvs_close(storage_handle);
+                }
+  
+                if((Q6buff & 0b00001111) == 7)
+                {
+                    nvs_open("CC_Storage", NVS_READWRITE, &storage_handle);
+  
+                    nvs_get_u8(storage_handle, "P7B0E0", &banks[0][0].CC);
+                    nvs_get_u8(storage_handle, "P7B0E1", &banks[0][1].CC);
+                    nvs_get_u8(storage_handle, "P7B0E2", &banks[0][2].CC);
+                    nvs_get_u8(storage_handle, "P7B0E3", &banks[0][3].CC);
+                    nvs_get_u8(storage_handle, "P7B0E4", &banks[0][4].CC);
+                    nvs_get_u8(storage_handle, "P7B0E5", &banks[0][5].CC);
+                    nvs_get_u8(storage_handle, "P7B0E6", &banks[0][6].CC);
+                    nvs_get_u8(storage_handle, "P7B0E7", &banks[0][7].CC);
+  
+                    nvs_get_u8(storage_handle, "P7B1E0", &banks[1][0].CC);
+                    nvs_get_u8(storage_handle, "P7B1E1", &banks[1][1].CC);
+                    nvs_get_u8(storage_handle, "P7B1E2", &banks[1][2].CC);
+                    nvs_get_u8(storage_handle, "P7B1E3", &banks[1][3].CC);
+                    nvs_get_u8(storage_handle, "P7B1E4", &banks[1][4].CC);
+                    nvs_get_u8(storage_handle, "P7B1E5", &banks[1][5].CC);
+                    nvs_get_u8(storage_handle, "P7B1E6", &banks[1][6].CC);
+                    nvs_get_u8(storage_handle, "P7B1E7", &banks[1][7].CC);
+  
+                    nvs_get_u8(storage_handle, "P7B2E0", &banks[2][0].CC);
+                    nvs_get_u8(storage_handle, "P7B2E1", &banks[2][1].CC);
+                    nvs_get_u8(storage_handle, "P7B2E2", &banks[2][2].CC);
+                    nvs_get_u8(storage_handle, "P7B2E3", &banks[2][3].CC);
+                    nvs_get_u8(storage_handle, "P7B2E4", &banks[2][4].CC);
+                    nvs_get_u8(storage_handle, "P7B2E5", &banks[2][5].CC);
+                    nvs_get_u8(storage_handle, "P7B2E6", &banks[2][6].CC);
+                    nvs_get_u8(storage_handle, "P7B2E7", &banks[2][7].CC);
+  
+                    nvs_get_u8(storage_handle, "P7B3E0", &banks[3][0].CC);
+                    nvs_get_u8(storage_handle, "P7B3E1", &banks[3][1].CC);
+                    nvs_get_u8(storage_handle, "P7B3E2", &banks[3][2].CC);
+                    nvs_get_u8(storage_handle, "P7B3E3", &banks[3][3].CC);
+                    nvs_get_u8(storage_handle, "P7B3E4", &banks[3][4].CC);
+                    nvs_get_u8(storage_handle, "P7B3E5", &banks[3][5].CC);
+                    nvs_get_u8(storage_handle, "P7B3E6", &banks[3][6].CC);
+                    nvs_get_u8(storage_handle, "P7B3E7", &banks[3][7].CC);
+  
+                    nvs_close(storage_handle);
+                }
+  
+                if((Q6buff & 0b00001111) == 8)
+                {
+                    nvs_open("CC_Storage", NVS_READWRITE, &storage_handle);
+  
+                    nvs_get_u8(storage_handle, "P8B0E0", &banks[0][0].CC);
+                    nvs_get_u8(storage_handle, "P8B0E1", &banks[0][1].CC);
+                    nvs_get_u8(storage_handle, "P8B0E2", &banks[0][2].CC);
+                    nvs_get_u8(storage_handle, "P8B0E3", &banks[0][3].CC);
+                    nvs_get_u8(storage_handle, "P8B0E4", &banks[0][4].CC);
+                    nvs_get_u8(storage_handle, "P8B0E5", &banks[0][5].CC);
+                    nvs_get_u8(storage_handle, "P8B0E6", &banks[0][6].CC);
+                    nvs_get_u8(storage_handle, "P8B0E7", &banks[0][7].CC);
+  
+                    nvs_get_u8(storage_handle, "P8B1E0", &banks[1][0].CC);
+                    nvs_get_u8(storage_handle, "P8B1E1", &banks[1][1].CC);
+                    nvs_get_u8(storage_handle, "P8B1E2", &banks[1][2].CC);
+                    nvs_get_u8(storage_handle, "P8B1E3", &banks[1][3].CC);
+                    nvs_get_u8(storage_handle, "P8B1E4", &banks[1][4].CC);
+                    nvs_get_u8(storage_handle, "P8B1E5", &banks[1][5].CC);
+                    nvs_get_u8(storage_handle, "P8B1E6", &banks[1][6].CC);
+                    nvs_get_u8(storage_handle, "P8B1E7", &banks[1][7].CC);
+  
+                    nvs_get_u8(storage_handle, "P8B2E0", &banks[2][0].CC);
+                    nvs_get_u8(storage_handle, "P8B2E1", &banks[2][1].CC);
+                    nvs_get_u8(storage_handle, "P8B2E2", &banks[2][2].CC);
+                    nvs_get_u8(storage_handle, "P8B2E3", &banks[2][3].CC);
+                    nvs_get_u8(storage_handle, "P8B2E4", &banks[2][4].CC);
+                    nvs_get_u8(storage_handle, "P8B2E5", &banks[2][5].CC);
+                    nvs_get_u8(storage_handle, "P8B2E6", &banks[2][6].CC);
+                    nvs_get_u8(storage_handle, "P8B2E7", &banks[2][7].CC);
+  
+                    nvs_get_u8(storage_handle, "P8B3E0", &banks[3][0].CC);
+                    nvs_get_u8(storage_handle, "P8B3E1", &banks[3][1].CC);
+                    nvs_get_u8(storage_handle, "P8B3E2", &banks[3][2].CC);
+                    nvs_get_u8(storage_handle, "P8B3E3", &banks[3][3].CC);
+                    nvs_get_u8(storage_handle, "P8B3E4", &banks[3][4].CC);
+                    nvs_get_u8(storage_handle, "P8B3E5", &banks[3][5].CC);
+                    nvs_get_u8(storage_handle, "P8B3E6", &banks[3][6].CC);
+                    nvs_get_u8(storage_handle, "P8B3E7", &banks[3][7].CC);
+  
+                    nvs_close(storage_handle);
+                }
+            }
+  
+            if((Q6buff & 0b11000000) == 0b11000000) // clear
+            {
+                if((Q6buff & 0b00001111) == 1)
+                {
+                    nvs_open("CC_Storage", NVS_READWRITE, &storage_handle);
+  
+                    nvs_set_u8(storage_handle, "P1B0E0", 0);
+                    nvs_set_u8(storage_handle, "P1B0E1", 0);
+                    nvs_set_u8(storage_handle, "P1B0E2", 0);
+                    nvs_set_u8(storage_handle, "P1B0E3", 0);
+                    nvs_set_u8(storage_handle, "P1B0E4", 0);
+                    nvs_set_u8(storage_handle, "P1B0E5", 0);
+                    nvs_set_u8(storage_handle, "P1B0E6", 0);
+                    nvs_set_u8(storage_handle, "P1B0E7", 0);
+  
+                    nvs_set_u8(storage_handle, "P1B1E0", 0);
+                    nvs_set_u8(storage_handle, "P1B1E1", 0);
+                    nvs_set_u8(storage_handle, "P1B1E2", 0);
+                    nvs_set_u8(storage_handle, "P1B1E3", 0);
+                    nvs_set_u8(storage_handle, "P1B1E4", 0);
+                    nvs_set_u8(storage_handle, "P1B1E5", 0);
+                    nvs_set_u8(storage_handle, "P1B1E6", 0);
+                    nvs_set_u8(storage_handle, "P1B1E7", 0);
+  
+                    nvs_set_u8(storage_handle, "P1B2E0", 0);
+                    nvs_set_u8(storage_handle, "P1B2E1", 0);
+                    nvs_set_u8(storage_handle, "P1B2E2", 0);
+                    nvs_set_u8(storage_handle, "P1B2E3", 0);
+                    nvs_set_u8(storage_handle, "P1B2E4", 0);
+                    nvs_set_u8(storage_handle, "P1B2E5", 0);
+                    nvs_set_u8(storage_handle, "P1B2E6", 0);
+                    nvs_set_u8(storage_handle, "P1B2E7", 0);
+  
+                    nvs_set_u8(storage_handle, "P1B3E0", 0);
+                    nvs_set_u8(storage_handle, "P1B3E1", 0);
+                    nvs_set_u8(storage_handle, "P1B3E2", 0);
+                    nvs_set_u8(storage_handle, "P1B3E3", 0);
+                    nvs_set_u8(storage_handle, "P1B3E4", 0);
+                    nvs_set_u8(storage_handle, "P1B3E5", 0);
+                    nvs_set_u8(storage_handle, "P1B3E6", 0);
+                    nvs_set_u8(storage_handle, "P1B3E7", 0);
+  
+                    nvs_commit(storage_handle);
+                    nvs_close(storage_handle);
+                }
+  
+                if((Q6buff & 0b00001111) == 2)
+                {
+                    nvs_open("CC_Storage", NVS_READWRITE, &storage_handle);
+  
+                    nvs_set_u8(storage_handle, "P2B0E0", 0);
+                    nvs_set_u8(storage_handle, "P2B0E1", 0);
+                    nvs_set_u8(storage_handle, "P2B0E2", 0);
+                    nvs_set_u8(storage_handle, "P2B0E3", 0);
+                    nvs_set_u8(storage_handle, "P2B0E4", 0);
+                    nvs_set_u8(storage_handle, "P2B0E5", 0);
+                    nvs_set_u8(storage_handle, "P2B0E6", 0);
+                    nvs_set_u8(storage_handle, "P2B0E7", 0);
+  
+                    nvs_set_u8(storage_handle, "P2B1E0", 0);
+                    nvs_set_u8(storage_handle, "P2B1E1", 0);
+                    nvs_set_u8(storage_handle, "P2B1E2", 0);
+                    nvs_set_u8(storage_handle, "P2B1E3", 0);
+                    nvs_set_u8(storage_handle, "P2B1E4", 0);
+                    nvs_set_u8(storage_handle, "P2B1E5", 0);
+                    nvs_set_u8(storage_handle, "P2B1E6", 0);
+                    nvs_set_u8(storage_handle, "P2B1E7", 0);
+  
+                    nvs_set_u8(storage_handle, "P2B2E0", 0);
+                    nvs_set_u8(storage_handle, "P2B2E1", 0);
+                    nvs_set_u8(storage_handle, "P2B2E2", 0);
+                    nvs_set_u8(storage_handle, "P2B2E3", 0);
+                    nvs_set_u8(storage_handle, "P2B2E4", 0);
+                    nvs_set_u8(storage_handle, "P2B2E5", 0);
+                    nvs_set_u8(storage_handle, "P2B2E6", 0);
+                    nvs_set_u8(storage_handle, "P2B2E7", 0);
+  
+                    nvs_set_u8(storage_handle, "P2B3E0", 0);
+                    nvs_set_u8(storage_handle, "P2B3E1", 0);
+                    nvs_set_u8(storage_handle, "P2B3E2", 0);
+                    nvs_set_u8(storage_handle, "P2B3E3", 0);
+                    nvs_set_u8(storage_handle, "P2B3E4", 0);
+                    nvs_set_u8(storage_handle, "P2B3E5", 0);
+                    nvs_set_u8(storage_handle, "P2B3E6", 0);
+                    nvs_set_u8(storage_handle, "P2B3E7", 0);
+  
+                    nvs_commit(storage_handle);
+                    nvs_close(storage_handle);
+                }
+  
+                if((Q6buff & 0b00001111) == 3)
+                {
+                    nvs_open("CC_Storage", NVS_READWRITE, &storage_handle);
+  
+                    nvs_set_u8(storage_handle, "P3B0E0", 0);
+                    nvs_set_u8(storage_handle, "P3B0E1", 0);
+                    nvs_set_u8(storage_handle, "P3B0E2", 0);
+                    nvs_set_u8(storage_handle, "P3B0E3", 0);
+                    nvs_set_u8(storage_handle, "P3B0E4", 0);
+                    nvs_set_u8(storage_handle, "P3B0E5", 0);
+                    nvs_set_u8(storage_handle, "P3B0E6", 0);
+                    nvs_set_u8(storage_handle, "P3B0E7", 0);
+  
+                    nvs_set_u8(storage_handle, "P3B1E0", 0);
+                    nvs_set_u8(storage_handle, "P3B1E1", 0);
+                    nvs_set_u8(storage_handle, "P3B1E2", 0);
+                    nvs_set_u8(storage_handle, "P3B1E3", 0);
+                    nvs_set_u8(storage_handle, "P3B1E4", 0);
+                    nvs_set_u8(storage_handle, "P3B1E5", 0);
+                    nvs_set_u8(storage_handle, "P3B1E6", 0);
+                    nvs_set_u8(storage_handle, "P3B1E7", 0);
+  
+                    nvs_set_u8(storage_handle, "P3B2E0", 0);
+                    nvs_set_u8(storage_handle, "P3B2E1", 0);
+                    nvs_set_u8(storage_handle, "P3B2E2", 0);
+                    nvs_set_u8(storage_handle, "P3B2E3", 0);
+                    nvs_set_u8(storage_handle, "P3B2E4", 0);
+                    nvs_set_u8(storage_handle, "P3B2E5", 0);
+                    nvs_set_u8(storage_handle, "P3B2E6", 0);
+                    nvs_set_u8(storage_handle, "P3B2E7", 0);
+  
+                    nvs_set_u8(storage_handle, "P3B3E0", 0);
+                    nvs_set_u8(storage_handle, "P3B3E1", 0);
+                    nvs_set_u8(storage_handle, "P3B3E2", 0);
+                    nvs_set_u8(storage_handle, "P3B3E3", 0);
+                    nvs_set_u8(storage_handle, "P3B3E4", 0);
+                    nvs_set_u8(storage_handle, "P3B3E5", 0);
+                    nvs_set_u8(storage_handle, "P3B3E6", 0);
+                    nvs_set_u8(storage_handle, "P3B3E7", 0);
+  
+                    nvs_commit(storage_handle);
+                    nvs_close(storage_handle);
+                }
+  
+                if((Q6buff & 0b00001111) == 4)
+                {
+                    nvs_open("CC_Storage", NVS_READWRITE, &storage_handle);
+  
+                    nvs_set_u8(storage_handle, "P4B0E0", 0);
+                    nvs_set_u8(storage_handle, "P4B0E1", 0);
+                    nvs_set_u8(storage_handle, "P4B0E2", 0);
+                    nvs_set_u8(storage_handle, "P4B0E3", 0);
+                    nvs_set_u8(storage_handle, "P4B0E4", 0);
+                    nvs_set_u8(storage_handle, "P4B0E5", 0);
+                    nvs_set_u8(storage_handle, "P4B0E6", 0);
+                    nvs_set_u8(storage_handle, "P4B0E7", 0);
+  
+                    nvs_set_u8(storage_handle, "P4B1E0", 0);
+                    nvs_set_u8(storage_handle, "P4B1E1", 0);
+                    nvs_set_u8(storage_handle, "P4B1E2", 0);
+                    nvs_set_u8(storage_handle, "P4B1E3", 0);
+                    nvs_set_u8(storage_handle, "P4B1E4", 0);
+                    nvs_set_u8(storage_handle, "P4B1E5", 0);
+                    nvs_set_u8(storage_handle, "P4B1E6", 0);
+                    nvs_set_u8(storage_handle, "P4B1E7", 0);
+  
+                    nvs_set_u8(storage_handle, "P4B2E0", 0);
+                    nvs_set_u8(storage_handle, "P4B2E1", 0);
+                    nvs_set_u8(storage_handle, "P4B2E2", 0);
+                    nvs_set_u8(storage_handle, "P4B2E3", 0);
+                    nvs_set_u8(storage_handle, "P4B2E4", 0);
+                    nvs_set_u8(storage_handle, "P4B2E5", 0);
+                    nvs_set_u8(storage_handle, "P4B2E6", 0);
+                    nvs_set_u8(storage_handle, "P4B2E7", 0);
+  
+                    nvs_set_u8(storage_handle, "P4B3E0", 0);
+                    nvs_set_u8(storage_handle, "P4B3E1", 0);
+                    nvs_set_u8(storage_handle, "P4B3E2", 0);
+                    nvs_set_u8(storage_handle, "P4B3E3", 0);
+                    nvs_set_u8(storage_handle, "P4B3E4", 0);
+                    nvs_set_u8(storage_handle, "P4B3E5", 0);
+                    nvs_set_u8(storage_handle, "P4B3E6", 0);
+                    nvs_set_u8(storage_handle, "P4B3E7", 0);
+  
+                    nvs_commit(storage_handle);
+                    nvs_close(storage_handle);
+                }
+
+                if((Q6buff & 0b00001111) == 5)
+                {
+                    nvs_open("CC_Storage", NVS_READWRITE, &storage_handle);
+  
+                    nvs_set_u8(storage_handle, "P5B0E0", 0);
+                    nvs_set_u8(storage_handle, "P5B0E1", 0);
+                    nvs_set_u8(storage_handle, "P5B0E2", 0);
+                    nvs_set_u8(storage_handle, "P5B0E3", 0);
+                    nvs_set_u8(storage_handle, "P5B0E4", 0);
+                    nvs_set_u8(storage_handle, "P5B0E5", 0);
+                    nvs_set_u8(storage_handle, "P5B0E6", 0);
+                    nvs_set_u8(storage_handle, "P5B0E7", 0);
+  
+                    nvs_set_u8(storage_handle, "P5B1E0", 0);
+                    nvs_set_u8(storage_handle, "P5B1E1", 0);
+                    nvs_set_u8(storage_handle, "P5B1E2", 0);
+                    nvs_set_u8(storage_handle, "P5B1E3", 0);
+                    nvs_set_u8(storage_handle, "P5B1E4", 0);
+                    nvs_set_u8(storage_handle, "P5B1E5", 0);
+                    nvs_set_u8(storage_handle, "P5B1E6", 0);
+                    nvs_set_u8(storage_handle, "P5B1E7", 0);
+  
+                    nvs_set_u8(storage_handle, "P5B2E0", 0);
+                    nvs_set_u8(storage_handle, "P5B2E1", 0);
+                    nvs_set_u8(storage_handle, "P5B2E2", 0);
+                    nvs_set_u8(storage_handle, "P5B2E3", 0);
+                    nvs_set_u8(storage_handle, "P5B2E4", 0);
+                    nvs_set_u8(storage_handle, "P5B2E5", 0);
+                    nvs_set_u8(storage_handle, "P5B2E6", 0);
+                    nvs_set_u8(storage_handle, "P5B2E7", 0);
+  
+                    nvs_set_u8(storage_handle, "P5B3E0", 0);
+                    nvs_set_u8(storage_handle, "P5B3E1", 0);
+                    nvs_set_u8(storage_handle, "P5B3E2", 0);
+                    nvs_set_u8(storage_handle, "P5B3E3", 0);
+                    nvs_set_u8(storage_handle, "P5B3E4", 0);
+                    nvs_set_u8(storage_handle, "P5B3E5", 0);
+                    nvs_set_u8(storage_handle, "P5B3E6", 0);
+                    nvs_set_u8(storage_handle, "P5B3E7", 0);
+  
+                    nvs_commit(storage_handle);
+                    nvs_close(storage_handle);
+                }
+  
+                if((Q6buff & 0b00001111) == 6)
+                {
+                    nvs_open("CC_Storage", NVS_READWRITE, &storage_handle);
+  
+                    nvs_set_u8(storage_handle, "P6B0E0", 0);
+                    nvs_set_u8(storage_handle, "P6B0E1", 0);
+                    nvs_set_u8(storage_handle, "P6B0E2", 0);
+                    nvs_set_u8(storage_handle, "P6B0E3", 0);
+                    nvs_set_u8(storage_handle, "P6B0E4", 0);
+                    nvs_set_u8(storage_handle, "P6B0E5", 0);
+                    nvs_set_u8(storage_handle, "P6B0E6", 0);
+                    nvs_set_u8(storage_handle, "P6B0E7", 0);
+  
+                    nvs_set_u8(storage_handle, "P6B1E0", 0);
+                    nvs_set_u8(storage_handle, "P6B1E1", 0);
+                    nvs_set_u8(storage_handle, "P6B1E2", 0);
+                    nvs_set_u8(storage_handle, "P6B1E3", 0);
+                    nvs_set_u8(storage_handle, "P6B1E4", 0);
+                    nvs_set_u8(storage_handle, "P6B1E5", 0);
+                    nvs_set_u8(storage_handle, "P6B1E6", 0);
+                    nvs_set_u8(storage_handle, "P6B1E7", 0);
+  
+                    nvs_set_u8(storage_handle, "P6B2E0", 0);
+                    nvs_set_u8(storage_handle, "P6B2E1", 0);
+                    nvs_set_u8(storage_handle, "P6B2E2", 0);
+                    nvs_set_u8(storage_handle, "P6B2E3", 0);
+                    nvs_set_u8(storage_handle, "P6B2E4", 0);
+                    nvs_set_u8(storage_handle, "P6B2E5", 0);
+                    nvs_set_u8(storage_handle, "P6B2E6", 0);
+                    nvs_set_u8(storage_handle, "P6B2E7", 0);
+  
+                    nvs_set_u8(storage_handle, "P6B3E0", 0);
+                    nvs_set_u8(storage_handle, "P6B3E1", 0);
+                    nvs_set_u8(storage_handle, "P6B3E2", 0);
+                    nvs_set_u8(storage_handle, "P6B3E3", 0);
+                    nvs_set_u8(storage_handle, "P6B3E4", 0);
+                    nvs_set_u8(storage_handle, "P6B3E5", 0);
+                    nvs_set_u8(storage_handle, "P6B3E6", 0);
+                    nvs_set_u8(storage_handle, "P6B3E7", 0);
+  
+                    nvs_commit(storage_handle);
+                    nvs_close(storage_handle);
+                }
+  
+                if((Q6buff & 0b00001111) == 7)
+                {
+                    nvs_open("CC_Storage", NVS_READWRITE, &storage_handle);
+  
+                    nvs_set_u8(storage_handle, "P7B0E0", 0);
+                    nvs_set_u8(storage_handle, "P7B0E1", 0);
+                    nvs_set_u8(storage_handle, "P7B0E2", 0);
+                    nvs_set_u8(storage_handle, "P7B0E3", 0);
+                    nvs_set_u8(storage_handle, "P7B0E4", 0);
+                    nvs_set_u8(storage_handle, "P7B0E5", 0);
+                    nvs_set_u8(storage_handle, "P7B0E6", 0);
+                    nvs_set_u8(storage_handle, "P7B0E7", 0);
+  
+                    nvs_set_u8(storage_handle, "P7B1E0", 0);
+                    nvs_set_u8(storage_handle, "P7B1E1", 0);
+                    nvs_set_u8(storage_handle, "P7B1E2", 0);
+                    nvs_set_u8(storage_handle, "P7B1E3", 0);
+                    nvs_set_u8(storage_handle, "P7B1E4", 0);
+                    nvs_set_u8(storage_handle, "P7B1E5", 0);
+                    nvs_set_u8(storage_handle, "P7B1E6", 0);
+                    nvs_set_u8(storage_handle, "P7B1E7", 0);
+  
+                    nvs_set_u8(storage_handle, "P7B2E0", 0);
+                    nvs_set_u8(storage_handle, "P7B2E1", 0);
+                    nvs_set_u8(storage_handle, "P7B2E2", 0);
+                    nvs_set_u8(storage_handle, "P7B2E3", 0);
+                    nvs_set_u8(storage_handle, "P7B2E4", 0);
+                    nvs_set_u8(storage_handle, "P7B2E5", 0);
+                    nvs_set_u8(storage_handle, "P7B2E6", 0);
+                    nvs_set_u8(storage_handle, "P7B2E7", 0);
+  
+                    nvs_set_u8(storage_handle, "P7B3E0", 0);
+                    nvs_set_u8(storage_handle, "P7B3E1", 0);
+                    nvs_set_u8(storage_handle, "P7B3E2", 0);
+                    nvs_set_u8(storage_handle, "P7B3E3", 0);
+                    nvs_set_u8(storage_handle, "P7B3E4", 0);
+                    nvs_set_u8(storage_handle, "P7B3E5", 0);
+                    nvs_set_u8(storage_handle, "P7B3E6", 0);
+                    nvs_set_u8(storage_handle, "P7B3E7", 0);
+  
+                    nvs_commit(storage_handle);
+                    nvs_close(storage_handle);
+                }
+  
+                if((Q6buff & 0b00001111) == 8)
+                {
+                    nvs_open("CC_Storage", NVS_READWRITE, &storage_handle);
+  
+                    nvs_set_u8(storage_handle, "P8B0E0", 0);
+                    nvs_set_u8(storage_handle, "P8B0E1", 0);
+                    nvs_set_u8(storage_handle, "P8B0E2", 0);
+                    nvs_set_u8(storage_handle, "P8B0E3", 0);
+                    nvs_set_u8(storage_handle, "P8B0E4", 0);
+                    nvs_set_u8(storage_handle, "P8B0E5", 0);
+                    nvs_set_u8(storage_handle, "P8B0E6", 0);
+                    nvs_set_u8(storage_handle, "P8B0E7", 0);
+  
+                    nvs_set_u8(storage_handle, "P8B1E0", 0);
+                    nvs_set_u8(storage_handle, "P8B1E1", 0);
+                    nvs_set_u8(storage_handle, "P8B1E2", 0);
+                    nvs_set_u8(storage_handle, "P8B1E3", 0);
+                    nvs_set_u8(storage_handle, "P8B1E4", 0);
+                    nvs_set_u8(storage_handle, "P8B1E5", 0);
+                    nvs_set_u8(storage_handle, "P8B1E6", 0);
+                    nvs_set_u8(storage_handle, "P8B1E7", 0);
+  
+                    nvs_set_u8(storage_handle, "P8B2E0", 0);
+                    nvs_set_u8(storage_handle, "P8B2E1", 0);
+                    nvs_set_u8(storage_handle, "P8B2E2", 0);
+                    nvs_set_u8(storage_handle, "P8B2E3", 0);
+                    nvs_set_u8(storage_handle, "P8B2E4", 0);
+                    nvs_set_u8(storage_handle, "P8B2E5", 0);
+                    nvs_set_u8(storage_handle, "P8B2E6", 0);
+                    nvs_set_u8(storage_handle, "P8B2E7", 0);
+  
+                    nvs_set_u8(storage_handle, "P8B3E0", 0);
+                    nvs_set_u8(storage_handle, "P8B3E1", 0);
+                    nvs_set_u8(storage_handle, "P8B3E2", 0);
+                    nvs_set_u8(storage_handle, "P8B3E3", 0);
+                    nvs_set_u8(storage_handle, "P8B3E4", 0);
+                    nvs_set_u8(storage_handle, "P8B3E5", 0);
+                    nvs_set_u8(storage_handle, "P8B3E6", 0);
+                    nvs_set_u8(storage_handle, "P8B3E7", 0);
+  
+                    nvs_commit(storage_handle);
+                    nvs_close(storage_handle);
+                }
+
+            }
+            Q6buff = 0;
         }
 
 

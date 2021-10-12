@@ -62,8 +62,6 @@ static void tab_content_anim_create(lv_obj_t * parent);
 static void tab_changer_task_cb(lv_task_t * task);
 #endif
 
-#define DEFAULT_VREF    1500        //Use adc2_vref_to_gpio() to obtain a better estimate
-#define NO_OF_SAMPLES   16          //Multisampling
 
 /**********************
  *  STATIC VARIABLES
@@ -77,13 +75,6 @@ static lv_obj_t * t5;
 static lv_obj_t * kb;
 
 
-static esp_adc_cal_characteristics_t *adc_chars2;
-static const adc_channel_t channel1 = ADC_CHANNEL_4;
-static const adc_channel_t channel2 = ADC_CHANNEL_6;
-static const adc_channel_t channel3 = ADC_CHANNEL_7;
-static const adc_bits_width_t width2 = ADC_WIDTH_BIT_12;
-static const adc_atten_t atten = ADC_ATTEN_DB_11;
-static const adc_unit_t unit = ADC_UNIT_1;
 
 /*************
  *  STYLES
@@ -110,6 +101,9 @@ extern uint8_t BPM;
 extern uint8_t bank;
 extern uint8_t mode;
 extern uint8_t track;
+
+extern QueueHandle_t Q6;
+uint8_t Q6buff = 0;
 
 char bpm_s[5];
 
@@ -1566,48 +1560,64 @@ static void savePreset_e(lv_obj_t * obj, lv_event_t e){
       lv_btn_set_state(listPreset1, LV_BTN_STATE_PRESSED);
       lv_btn_set_state(listPreset1, LV_BTN_STATE_RELEASED);
     }
+    Q6buff = (0b01000000) | 1;
+    xQueueSend(Q6,&Q6buff,10);
     break;
     case 2:
     if(lv_btn_get_state(listPreset2) == LV_BTN_STATE_CHECKED_RELEASED){
       lv_btn_set_state(listPreset2, LV_BTN_STATE_PRESSED);
       lv_btn_set_state(listPreset2, LV_BTN_STATE_RELEASED);
     }
+    Q6buff = (0b01000000) | 2;
+    xQueueSend(Q6,&Q6buff,10);
     break;
     case 3:
     if(lv_btn_get_state(listPreset3) == LV_BTN_STATE_CHECKED_RELEASED){
       lv_btn_set_state(listPreset3, LV_BTN_STATE_PRESSED);
       lv_btn_set_state(listPreset3, LV_BTN_STATE_RELEASED);
     }
+    Q6buff = (0b01000000) | 3;
+    xQueueSend(Q6,&Q6buff,10);
     break;
     case 4:
     if(lv_btn_get_state(listPreset4) == LV_BTN_STATE_CHECKED_RELEASED){
       lv_btn_set_state(listPreset4, LV_BTN_STATE_PRESSED);
       lv_btn_set_state(listPreset4, LV_BTN_STATE_RELEASED);
     }
+    Q6buff = (0b01000000) | 4;
+    xQueueSend(Q6,&Q6buff,10);
     break;
     case 5:
     if(lv_btn_get_state(listPreset5) == LV_BTN_STATE_CHECKED_RELEASED){
       lv_btn_set_state(listPreset5, LV_BTN_STATE_PRESSED);
       lv_btn_set_state(listPreset5, LV_BTN_STATE_RELEASED);
     }
+    Q6buff = (0b01000000) | 5;
+    xQueueSend(Q6,&Q6buff,10);
     break;
     case 6:
     if(lv_btn_get_state(listPreset6) == LV_BTN_STATE_CHECKED_RELEASED){
       lv_btn_set_state(listPreset6, LV_BTN_STATE_PRESSED);
       lv_btn_set_state(listPreset6, LV_BTN_STATE_RELEASED);
     }
+    Q6buff = (0b01000000) | 6;
+    xQueueSend(Q6,&Q6buff,10);
     break;
     case 7:
     if(lv_btn_get_state(listPreset7) == LV_BTN_STATE_CHECKED_RELEASED){
       lv_btn_set_state(listPreset7, LV_BTN_STATE_PRESSED);
       lv_btn_set_state(listPreset7, LV_BTN_STATE_RELEASED);
     }
+    Q6buff = (0b01000000) | 7;
+    xQueueSend(Q6,&Q6buff,10);
     break;
     case 8:
     if(lv_btn_get_state(listPreset8) == LV_BTN_STATE_CHECKED_RELEASED){
       lv_btn_set_state(listPreset8, LV_BTN_STATE_PRESSED);
       lv_btn_set_state(listPreset8, LV_BTN_STATE_RELEASED);
     }
+    Q6buff = (0b01000000) | 8;
+    xQueueSend(Q6,&Q6buff,10);
     break;
   }
 }
@@ -1619,48 +1629,64 @@ static void loadPreset_e(lv_obj_t * obj, lv_event_t e){
       lv_btn_set_state(listPreset1, LV_BTN_STATE_PRESSED);
       lv_btn_set_state(listPreset1, LV_BTN_STATE_RELEASED);
     }
+    Q6buff = (0b10000000) | 1;
+    xQueueSend(Q6,&Q6buff,10);
     break;
     case 2:
     if(lv_btn_get_state(listPreset2) == LV_BTN_STATE_CHECKED_RELEASED){
       lv_btn_set_state(listPreset2, LV_BTN_STATE_PRESSED);
       lv_btn_set_state(listPreset2, LV_BTN_STATE_RELEASED);
     }
+    Q6buff = (0b10000000) | 2;
+    xQueueSend(Q6,&Q6buff,10);
     break;
     case 3:
     if(lv_btn_get_state(listPreset3) == LV_BTN_STATE_CHECKED_RELEASED){
       lv_btn_set_state(listPreset3, LV_BTN_STATE_PRESSED);
       lv_btn_set_state(listPreset3, LV_BTN_STATE_RELEASED);
     }
+    Q6buff = (0b10000000) | 3;
+    xQueueSend(Q6,&Q6buff,10);
     break;
     case 4:
     if(lv_btn_get_state(listPreset4) == LV_BTN_STATE_CHECKED_RELEASED){
       lv_btn_set_state(listPreset4, LV_BTN_STATE_PRESSED);
       lv_btn_set_state(listPreset4, LV_BTN_STATE_RELEASED);
     }
+    Q6buff = (0b10000000) | 4;
+    xQueueSend(Q6,&Q6buff,10);
     break;
     case 5:
     if(lv_btn_get_state(listPreset5) == LV_BTN_STATE_CHECKED_RELEASED){
       lv_btn_set_state(listPreset5, LV_BTN_STATE_PRESSED);
       lv_btn_set_state(listPreset5, LV_BTN_STATE_RELEASED);
     }
+    Q6buff = (0b10000000) | 5;
+    xQueueSend(Q6,&Q6buff,10);
     break;
     case 6:
     if(lv_btn_get_state(listPreset6) == LV_BTN_STATE_CHECKED_RELEASED){
       lv_btn_set_state(listPreset6, LV_BTN_STATE_PRESSED);
       lv_btn_set_state(listPreset6, LV_BTN_STATE_RELEASED);
     }
+    Q6buff = (0b10000000) | 6;
+    xQueueSend(Q6,&Q6buff,10);
     break;
     case 7:
     if(lv_btn_get_state(listPreset7) == LV_BTN_STATE_CHECKED_RELEASED){
       lv_btn_set_state(listPreset7, LV_BTN_STATE_PRESSED);
       lv_btn_set_state(listPreset7, LV_BTN_STATE_RELEASED);
     }
+    Q6buff = (0b10000000) | 7;
+    xQueueSend(Q6,&Q6buff,10);
     break;
     case 8:
     if(lv_btn_get_state(listPreset8) == LV_BTN_STATE_CHECKED_RELEASED){
       lv_btn_set_state(listPreset8, LV_BTN_STATE_PRESSED);
       lv_btn_set_state(listPreset8, LV_BTN_STATE_RELEASED);
     }
+    Q6buff = (0b10000000) | 8;
+    xQueueSend(Q6,&Q6buff,10);
     break;
   }
 }
@@ -1672,48 +1698,64 @@ static void clearPreset_e(lv_obj_t * obj, lv_event_t e){
       lv_btn_set_state(listPreset1, LV_BTN_STATE_PRESSED);
       lv_btn_set_state(listPreset1, LV_BTN_STATE_RELEASED);
     }
+    Q6buff = (0b11000000) | 1;
+    xQueueSend(Q6,&Q6buff,10);
     break;
     case 2:
     if(lv_btn_get_state(listPreset2) == LV_BTN_STATE_CHECKED_RELEASED){
       lv_btn_set_state(listPreset2, LV_BTN_STATE_PRESSED);
       lv_btn_set_state(listPreset2, LV_BTN_STATE_RELEASED);
     }
+    Q6buff = (0b11000000) | 2;
+    xQueueSend(Q6,&Q6buff,10);
     break;
     case 3:
     if(lv_btn_get_state(listPreset3) == LV_BTN_STATE_CHECKED_RELEASED){
       lv_btn_set_state(listPreset3, LV_BTN_STATE_PRESSED);
       lv_btn_set_state(listPreset3, LV_BTN_STATE_RELEASED);
     }
+    Q6buff = (0b11000000) | 3;
+    xQueueSend(Q6,&Q6buff,10);
     break;
     case 4:
     if(lv_btn_get_state(listPreset4) == LV_BTN_STATE_CHECKED_RELEASED){
       lv_btn_set_state(listPreset4, LV_BTN_STATE_PRESSED);
       lv_btn_set_state(listPreset4, LV_BTN_STATE_RELEASED);
     }
+    Q6buff = (0b11000000) | 4;
+    xQueueSend(Q6,&Q6buff,10);
     break;
     case 5:
     if(lv_btn_get_state(listPreset5) == LV_BTN_STATE_CHECKED_RELEASED){
       lv_btn_set_state(listPreset5, LV_BTN_STATE_PRESSED);
       lv_btn_set_state(listPreset5, LV_BTN_STATE_RELEASED);
     }
+    Q6buff = (0b11000000) | 5;
+    xQueueSend(Q6,&Q6buff,10);
     break;
     case 6:
     if(lv_btn_get_state(listPreset6) == LV_BTN_STATE_CHECKED_RELEASED){
       lv_btn_set_state(listPreset6, LV_BTN_STATE_PRESSED);
       lv_btn_set_state(listPreset6, LV_BTN_STATE_RELEASED);
     }
+    Q6buff = (0b11000000) | 6;
+    xQueueSend(Q6,&Q6buff,10);
     break;
     case 7:
     if(lv_btn_get_state(listPreset7) == LV_BTN_STATE_CHECKED_RELEASED){
       lv_btn_set_state(listPreset7, LV_BTN_STATE_PRESSED);
       lv_btn_set_state(listPreset7, LV_BTN_STATE_RELEASED);
     }
+    Q6buff = (0b11000000) | 7;
+    xQueueSend(Q6,&Q6buff,10);
     break;
     case 8:
     if(lv_btn_get_state(listPreset8) == LV_BTN_STATE_CHECKED_RELEASED){
       lv_btn_set_state(listPreset8, LV_BTN_STATE_PRESSED);
       lv_btn_set_state(listPreset8, LV_BTN_STATE_RELEASED);
     }
+    Q6buff = (0b11000000) | 8;
+    xQueueSend(Q6,&Q6buff,10);
     break;
   }
 }
@@ -3004,31 +3046,6 @@ static void bar_anim(lv_task_t * t)
     lv_snprintf(buf, sizeof(buf), "Linear Pot %d/%d", xVal, lv_bar_get_max_value(bar));
     lv_obj_set_style_local_value_str(bar, LV_BAR_PART_BG, LV_STATE_DEFAULT, buf);
 
-    esp_err_t status2 = adc_vref_to_gpio(ADC_UNIT_1, GPIO_NUM_35);
-    //esp_err_tadc1_config_channel_atten(adc1_channel_tchannel, adc_atten_tatten)
-
-    //Configure ADC
-    adc1_config_width(width2);
-    adc1_config_channel_atten(channel1, atten);
-    adc1_config_channel_atten(channel2, atten);
-    adc1_config_channel_atten(channel3, atten);
-
-
-    //Characterize ADC
-    adc_chars2 = calloc(1, sizeof(esp_adc_cal_characteristics_t));
-    esp_adc_cal_value_t val_type2 = esp_adc_cal_characterize(unit, atten, width2, DEFAULT_VREF, adc_chars2);
-
-    //Continuously sample ADC
-    adc_reading2 = 0;           
-    //Multisampling
-    for (int i = 0; i < NO_OF_SAMPLES; i++) {
-        adc_reading2 += adc1_get_raw((adc1_channel_t)channel2);
-    }
-    adc_reading2 /= NO_OF_SAMPLES;
-    printf("Raw: %.2d\n", adc_reading2);
-    float xVal = roundf((((float)adc_reading2+1)/1000)*100)/10;
-    xVal = ((xVal/41)*100);
-    printf("X - %.4f\n", xVal);
 
     lv_bar_set_value(bar, xVal, LV_ANIM_OFF);
   }
