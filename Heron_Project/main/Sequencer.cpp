@@ -43,3 +43,17 @@ void TrackClass::stepInc(uint32_t& Q3buff)
     }
 
 }
+
+void TrackClass::velInc(bool direction)
+{
+    if(direction == 0)
+    {
+        if(this->d2 == 0){return;}
+        else{this->d2--;}
+    }
+    else if(direction == 1)
+    {
+        if(this->d2 == 127){return;}
+        else{this->d2 = this->d2+1;}
+    }
+}
