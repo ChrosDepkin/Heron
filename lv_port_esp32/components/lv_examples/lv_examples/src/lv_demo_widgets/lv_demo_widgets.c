@@ -97,6 +97,8 @@ static lv_style_t arc_line_indic_cc;
 static lv_style_t listBtnStyle;
 static lv_style_t listBtnStyle2;
 static lv_style_t rollerStyle;
+static lv_style_t bgStyle;
+static lv_style_t bgStyle1;
 
 static uint32_t adc_reading2 = 0; 
 
@@ -106,6 +108,8 @@ static uint8_t bpm = 120; //change
 static uint32_t bank = 1; //change
 static uint32_t mode = 1; //change
 static uint32_t track = 1;  //change
+
+static uint32_t flag2 = 0;
 
 char bpm_s[5];
 
@@ -163,6 +167,8 @@ uint8_t currBtn = 0;
 uint8_t vel = 0;
 uint8_t velCheck = 0;
 
+static uint8_t colorStyle = 0;
+
 lv_obj_t * listPreset1;
 lv_obj_t * listPreset2;
 lv_obj_t * listPreset3;
@@ -185,6 +191,55 @@ LV_FONT_DECLARE(novamono_60);
 
 #define MY_USB_SYMBOL "\xEF\x8A\x87"
 
+
+/*
+
+lv_color_t bgColor = LV_COLOR_MAKE(0x3A, 0x00, 0xEA);
+lv_obj_t * arcLineIndic = LV_COLOR_MAKE(0xFF, 0x25, 0x4e);
+lv_obj_t * arcLineIndicCC = LV_COLOR_MAKE(0x52, 0xd1, 0xdc);
+lv_obj_t * sliderLine = LV_COLOR_MAKE(0xFF, 0x25, 0x4e)
+lv_obj_t * sliderLineCC = (0x52, 0xd1, 0xdc);
+lv_obj_t * sliderLineVel = LV_COLOR_MAKE(0x3A, 0x7D, 0x44);
+lv_obj_t * listBgColor = LV_COLOR_MAKE(0xF2, 0xEF, 0xEA);
+lv_obj_t * boxBgStyle = LV_COLOR_MAKE(0xFF, 0x25, 0x4e);
+
+lv_obj_t * bgColor1 = LV_COLOR_MAKE(0xEA, 0xEF, 0xF2);
+lv_obj_t * arcLineIndic1 = LV_COLOR_MAKE(0x4e, 0x25, 0xFF);
+lv_obj_t * arcLineIndicCC1 = LV_COLOR_MAKE(0xdc, 0xd1, 0x52);
+lv_obj_t * sliderLine1 = LV_COLOR_MAKE(0x4e, 0x25, 0xFF)
+lv_obj_t * sliderLineCC1 = (0xdc, 0xd1, 0x52);
+lv_obj_t * sliderLineVel1 = LV_COLOR_MAKE(0x44, 0x7D, 0x3A);
+lv_obj_t * listBgColor1 = LV_COLOR_MAKE(0xEA, 0xEF, 0xF2);
+lv_obj_t * boxBgStyle1 = LV_COLOR_MAKE(0x4e, 0x25, 0xFF);
+
+lv_obj_t * bgColor2 = LV_COLOR_MAKE(0xEA, 0xF2, 0xEF);
+lv_obj_t * arcLineIndic2 = LV_COLOR_MAKE(0x4e, 0xFF, 0x25);
+lv_obj_t * arcLineIndicCC2 = LV_COLOR_MAKE(0xdc, 0x52, 0xd1);
+lv_obj_t * sliderLine2 = LV_COLOR_MAKE(0x4e, 0xDD, 0x25)
+lv_obj_t * sliderLineCC2 = (0xdc, 0x52, 0xd1);
+lv_obj_t * sliderLineVel2 = LV_COLOR_MAKE(0x44, 0x3A, 0x7D);
+lv_obj_t * listBgColor2 = LV_COLOR_MAKE(0xEA, 0xF2, 0xEF);
+lv_obj_t * boxBgStyle2 = LV_COLOR_MAKE(0x4e, 0xFF, 0x25);
+*/
+
+/*
+if (colorStyle == 0){
+
+}
+if (colorStyle == 1){
+
+}
+if (colorStyle == 2){
+
+}
+  bgColor = "";
+  arcLineIndic = "";
+  arcLineIndicCC = "";
+  sliderLine = "";
+  sliderLineCC = "";
+  sliderLineVel = "";
+  listBgColor = "";
+*/
 
 
 /**********************
@@ -1072,32 +1127,34 @@ static void arc1_btn5_e(lv_obj_t * obj, lv_event_t e){
       sliderBool[1] = 1;
     } */
 
-    if (sliderBool[0] == 0){
-      sliderBool[0] = 1;
-      static char buf[64];
-      lv_snprintf(buf, sizeof(buf), "%d", slider1CC);
-      const char * texts[] = {buf}; 
+    if(mode == 2){
+//**********
+      if (sliderBool[0] == 0){
+        sliderBool[0] = 1;
+        static char buf[64];
+        lv_snprintf(buf, sizeof(buf), "%d", vel);
+        const char * texts[] = {buf}; 
 
-      lv_bar_set_value(slider1, slider1CC, LV_ANIM_OFF);
-      lv_label_set_text(sliderText[0], buf);
-      lv_obj_align(sliderText[0], NULL, LV_ALIGN_CENTER, 0, 35);
-      //lv_obj_reset_style_list(slider1, LV_BAR_PART_BG);
-      //lv_obj_reset_style_list(slider1, LV_BAR_PART_INDIC);
-      //lv_obj_add_style(slider1, LV_BAR_PART_BG, &slider_line1);
-      //lv_obj_add_style(slider1, LV_BAR_PART_INDIC, &slider_line_cc);
-    }
-    else{
-      sliderBool[0] = 0;
-      static char buf[64];
-      lv_snprintf(buf, sizeof(buf), "%d", slider1Val);
-      const char * texts[] = {buf}; 
+        lv_bar_set_value(slider1, vel, LV_ANIM_OFF);
+        lv_label_set_text(sliderText[0], buf);
+        lv_obj_align(sliderText[0], NULL, LV_ALIGN_CENTER, 0, 35);
+        //lv_obj_reset_style_list(slider1, LV_BAR_PART_BG);
+        //lv_obj_reset_style_list(slider1, LV_BAR_PART_INDIC);
+        //lv_obj_add_style(slider1, LV_BAR_PART_BG, &slider_line1);
+        //lv_obj_add_style(slider1, LV_BAR_PART_INDIC, &slider_line_cc);
+      }
+      else{
+        sliderBool[0] = 0;
+        static char buf[64];
+        lv_snprintf(buf, sizeof(buf), "%d", vel);
+        const char * texts[] = {buf}; 
 
-      lv_bar_set_value(slider1, slider1Val, LV_ANIM_OFF);
-      lv_label_set_text(sliderText[0], buf);
-      lv_obj_align(sliderText[0], NULL, LV_ALIGN_CENTER, 0, 35);
-      //lv_obj_reset_style_list(slider1, LV_BAR_PART_INDIC);
-      //lv_obj_add_style(slider1, LV_BAR_PART_INDIC, &slider_line1);
-    }
+        lv_bar_set_value(slider1, vel, LV_ANIM_OFF);
+        lv_label_set_text(sliderText[0], buf);
+        lv_obj_align(sliderText[0], NULL, LV_ALIGN_CENTER, 0, 35);
+        //lv_obj_reset_style_list(slider1, LV_BAR_PART_INDIC);
+        //lv_obj_add_style(slider1, LV_BAR_PART_INDIC, &slider_line1);
+      }
 
     if (sliderBool[1] == 0){
       sliderBool[1] = 1;
@@ -1124,8 +1181,86 @@ static void arc1_btn5_e(lv_obj_t * obj, lv_event_t e){
       lv_obj_align(sliderText[1], NULL, LV_ALIGN_CENTER, 0, 75);
       //lv_obj_reset_style_list(slider2, LV_BAR_PART_INDIC);
       //lv_obj_add_style(slider2, LV_BAR_PART_INDIC, &slider_line1);
+      }
+//**********
     }
+    else{
+      if (sliderBool[0] == 0){
+        sliderBool[0] = 1;
+        static char buf[64];
+        lv_snprintf(buf, sizeof(buf), "%d", slider1CC);
+        const char * texts[] = {buf}; 
 
+        lv_bar_set_value(slider1, slider1CC, LV_ANIM_OFF);
+        lv_label_set_text(sliderText[0], buf);
+        lv_obj_align(sliderText[0], NULL, LV_ALIGN_CENTER, 0, 35);
+        //lv_obj_reset_style_list(slider1, LV_BAR_PART_BG);
+        //lv_obj_reset_style_list(slider1, LV_BAR_PART_INDIC);
+        //lv_obj_add_style(slider1, LV_BAR_PART_BG, &slider_line1);
+        //lv_obj_add_style(slider1, LV_BAR_PART_INDIC, &slider_line_cc);
+      }
+      else{
+        sliderBool[0] = 0;
+        static char buf[64];
+        lv_snprintf(buf, sizeof(buf), "%d", slider1Val);
+        const char * texts[] = {buf}; 
+
+        lv_bar_set_value(slider1, slider1Val, LV_ANIM_OFF);
+        lv_label_set_text(sliderText[0], buf);
+        lv_obj_align(sliderText[0], NULL, LV_ALIGN_CENTER, 0, 35);
+        //lv_obj_reset_style_list(slider1, LV_BAR_PART_INDIC);
+        //lv_obj_add_style(slider1, LV_BAR_PART_INDIC, &slider_line1);
+      }
+
+    if (sliderBool[1] == 0){
+      sliderBool[1] = 1;
+      static char buf[64];
+      lv_snprintf(buf, sizeof(buf), "%d", slider2CC);
+      const char * texts[] = {buf}; 
+
+      lv_bar_set_value(slider2, slider2CC, LV_ANIM_OFF);
+      lv_label_set_text(sliderText[1], buf);
+      lv_obj_align(sliderText[1], NULL, LV_ALIGN_CENTER, 0, 75);
+      //lv_obj_reset_style_list(slider1, LV_BAR_PART_BG);
+      //lv_obj_reset_style_list(slider2, LV_BAR_PART_INDIC);
+      //lv_obj_add_style(slider2, LV_BAR_PART_BG, &slider_line);
+      //lv_obj_add_style(slider2, LV_BAR_PART_INDIC, &slider_line_cc);
+    }
+    else{
+      sliderBool[1] = 0;
+      static char buf[64];
+      lv_snprintf(buf, sizeof(buf), "%d", slider2Val);
+      const char * texts[] = {buf}; 
+
+      lv_bar_set_value(slider2, slider2Val, LV_ANIM_OFF);
+      lv_label_set_text(sliderText[1], buf);
+      lv_obj_align(sliderText[1], NULL, LV_ALIGN_CENTER, 0, 75);
+      //lv_obj_reset_style_list(slider2, LV_BAR_PART_INDIC);
+      //lv_obj_add_style(slider2, LV_BAR_PART_INDIC, &slider_line1);
+      }
+    }
+  }
+}
+
+static void colorChangeDefault(lv_obj_t * obj, lv_event_t e){
+  if (e == LV_EVENT_CLICKED){
+    //lv_style_remove_prop(&bgStyle, LV_STYLE_BG_COLOR);
+    //lv_style_set_bg_color(&bgStyle, LV_STATE_DEFAULT, LV_COLOR_MAKE(0x3A, 0x00, 0xEA));
+    //lv_obj_reset_style_list(tv, LV_PAGE_PART_BG);
+    lv_obj_add_style(tv, LV_PAGE_PART_BG, &bgStyle1);
+    printf("Here");
+  }
+}
+
+static void colorChange1(lv_obj_t * obj, lv_event_t e){
+  if (e == LV_EVENT_CLICKED){
+    
+  }
+}
+
+static void colorChange2(lv_obj_t * obj, lv_event_t e){
+  if (e == LV_EVENT_CLICKED){
+    
   }
 }
 
@@ -1859,24 +1994,18 @@ static void clearPreset_e(lv_obj_t * obj, lv_event_t e){
 
 void lv_demo_widgets(void)
   {
-  static lv_style_t bgStyle;
+  
   lv_style_init(&bgStyle);
   lv_style_set_bg_color(&bgStyle, LV_STATE_DEFAULT, lv_color_hex(0xF2EFEA));
+
   tv = lv_tabview_create(lv_scr_act(), NULL);
   lv_obj_add_style(tv, LV_PAGE_PART_BG, &bgStyle);
+
   #if LV_USE_THEME_MATERIAL
     if(LV_THEME_DEFAULT_INIT == lv_theme_material_init) {
         lv_disp_size_t disp_size = lv_disp_get_size_category(NULL);
         if(disp_size >= LV_DISP_SIZE_MEDIUM) {
             lv_obj_set_style_local_pad_left(tv, LV_TABVIEW_PART_TAB_BG, LV_STATE_DEFAULT, LV_HOR_RES / 2);
-            lv_obj_t * sw = lv_switch_create(lv_scr_act(), NULL);
-            if(lv_theme_get_flags() & LV_THEME_MATERIAL_FLAG_DARK)
-                lv_switch_on(sw, LV_ANIM_ON);
-            lv_obj_set_event_cb(sw, color_chg_event_cb);
-            lv_obj_set_pos(sw, LV_DPX(10), LV_DPX(10));
-            lv_obj_set_style_local_value_str(sw, LV_SWITCH_PART_BG, LV_STATE_DEFAULT, "Dark");
-            lv_obj_set_style_local_value_align(sw, LV_SWITCH_PART_BG, LV_STATE_DEFAULT, LV_ALIGN_OUT_RIGHT_MID);
-            lv_obj_set_style_local_value_ofs_x(sw, LV_SWITCH_PART_BG, LV_STATE_DEFAULT, LV_DPI/35);
         }
     }
   #endif
@@ -1999,132 +2128,230 @@ void lv_demo_widgets(void)
   /****************
    *  STYLE INIT
    ****************/
-  lv_style_init(&style_box);
-  lv_style_set_value_align(&style_box, LV_STATE_DEFAULT, LV_ALIGN_OUT_BOTTOM_LEFT);
-  lv_style_set_value_ofs_y(&style_box, LV_STATE_DEFAULT, - LV_DPX(10));
-  lv_style_set_margin_top(&style_box, LV_STATE_DEFAULT, LV_DPX(30));
+    lv_style_init(&style_box);
+    lv_style_set_value_align(&style_box, LV_STATE_DEFAULT, LV_ALIGN_OUT_BOTTOM_LEFT);
+    lv_style_set_value_ofs_y(&style_box, LV_STATE_DEFAULT, - LV_DPX(10));
+    lv_style_set_margin_top(&style_box, LV_STATE_DEFAULT, LV_DPX(30));
 
-  lv_style_init(&arc_line);
-  lv_style_set_line_width(&arc_line, LV_STATE_DEFAULT, 4);
-  lv_style_set_line_color(&arc_line, LV_STATE_DEFAULT, LV_COLOR_BLACK);
-  lv_style_set_bg_opa(&arc_line,LV_STATE_DEFAULT, LV_OPA_TRANSP);
-  lv_style_set_bg_color(&arc_line,LV_STATE_DEFAULT, LV_COLOR_BLACK);
-  lv_style_set_text_color(&arc_line,LV_STATE_DEFAULT, LV_COLOR_BLACK);
-  //lv_style_set_border_color(&arc_line,LV_STATE_DEFAULT, LV_COLOR_BLACK);
-  lv_style_set_border_width(&arc_line, LV_STATE_DEFAULT, 0);
+    lv_style_init(&arc_line);
+    lv_style_set_line_width(&arc_line, LV_STATE_DEFAULT, 4);
+    lv_style_set_line_color(&arc_line, LV_STATE_DEFAULT, LV_COLOR_BLACK);
+    lv_style_set_bg_opa(&arc_line,LV_STATE_DEFAULT, LV_OPA_TRANSP);
+    lv_style_set_bg_color(&arc_line,LV_STATE_DEFAULT, LV_COLOR_BLACK);
+    lv_style_set_text_color(&arc_line,LV_STATE_DEFAULT, LV_COLOR_BLACK);
+    //lv_style_set_border_color(&arc_line,LV_STATE_DEFAULT, LV_COLOR_BLACK);
+    lv_style_set_border_width(&arc_line, LV_STATE_DEFAULT, 0);
 
-  lv_style_init(&arc_line_indic);
-  lv_style_set_line_width(&arc_line_indic, LV_STATE_DEFAULT, 4);
-  lv_style_set_line_color(&arc_line_indic, LV_STATE_DEFAULT, LV_COLOR_MAKE(0xFF, 0x25, 0x4e));
-  lv_style_set_bg_opa(&arc_line_indic, LV_STATE_DEFAULT, LV_OPA_COVER);
+    lv_style_init(&arc_line_indic);
+    lv_style_set_line_width(&arc_line_indic, LV_STATE_DEFAULT, 4);
+    lv_style_set_line_color(&arc_line_indic, LV_STATE_DEFAULT, LV_COLOR_MAKE(0xFF, 0x25, 0x4e));
+    lv_style_set_bg_opa(&arc_line_indic, LV_STATE_DEFAULT, LV_OPA_COVER);
 
-  lv_style_init(&arc_line_indic_cc);
-  lv_style_set_line_width(&arc_line_indic_cc, LV_STATE_DEFAULT, 4);
-  lv_style_set_line_color(&arc_line_indic_cc, LV_STATE_DEFAULT, LV_COLOR_MAKE(0x52, 0xd1, 0xdc));
-  lv_style_set_bg_opa(&arc_line_indic_cc, LV_STATE_DEFAULT, LV_OPA_COVER);
+    lv_style_init(&arc_line_indic_cc);
+    lv_style_set_line_width(&arc_line_indic_cc, LV_STATE_DEFAULT, 4);
+    lv_style_set_line_color(&arc_line_indic_cc, LV_STATE_DEFAULT, LV_COLOR_MAKE(0x52, 0xd1, 0xdc));
+    lv_style_set_bg_opa(&arc_line_indic_cc, LV_STATE_DEFAULT, LV_OPA_COVER);
 
-  lv_style_init(&arc_bg);
-  lv_style_set_bg_opa(&arc_bg, LV_STATE_DEFAULT, LV_OPA_TRANSP);
-  lv_style_set_border_width(&arc_bg, LV_STATE_DEFAULT, 0);
-  lv_style_set_line_width(&arc_bg, LV_STATE_DEFAULT, 4);
+    lv_style_init(&arc_bg);
+    lv_style_set_bg_opa(&arc_bg, LV_STATE_DEFAULT, LV_OPA_TRANSP);
+    lv_style_set_border_width(&arc_bg, LV_STATE_DEFAULT, 0);
+    lv_style_set_line_width(&arc_bg, LV_STATE_DEFAULT, 4);
 
-  lv_style_init(&slider_line);
-  lv_style_set_line_width(&slider_line, LV_STATE_DEFAULT, 6);
-  lv_style_set_line_color(&slider_line, LV_STATE_DEFAULT, LV_COLOR_BLACK);
-  lv_style_set_bg_opa(&slider_line,LV_STATE_DEFAULT, LV_OPA_COVER);
-  lv_style_set_bg_color(&slider_line,LV_STATE_DEFAULT, LV_COLOR_BLACK);
-  lv_style_set_text_color(&slider_line,LV_STATE_DEFAULT, LV_COLOR_BLACK);
-  lv_style_set_border_color(&slider_line,LV_STATE_DEFAULT, LV_COLOR_BLACK);
+    lv_style_init(&slider_line);
+    lv_style_set_line_width(&slider_line, LV_STATE_DEFAULT, 6);
+    lv_style_set_line_color(&slider_line, LV_STATE_DEFAULT, LV_COLOR_BLACK);
+    lv_style_set_bg_opa(&slider_line,LV_STATE_DEFAULT, LV_OPA_COVER);
+    lv_style_set_bg_color(&slider_line,LV_STATE_DEFAULT, LV_COLOR_BLACK);
+    lv_style_set_text_color(&slider_line,LV_STATE_DEFAULT, LV_COLOR_BLACK);
+    lv_style_set_border_color(&slider_line,LV_STATE_DEFAULT, LV_COLOR_BLACK);
 
-  lv_style_init(&slider_line1);
-  lv_style_set_line_width(&slider_line1, LV_STATE_DEFAULT, 6);
-  lv_style_set_line_color(&slider_line1, LV_STATE_DEFAULT, LV_COLOR_MAKE(0xFF, 0x25, 0x4e));
-  lv_style_set_bg_opa(&slider_line1,LV_STATE_DEFAULT, LV_OPA_COVER);
+    lv_style_init(&slider_line1);
+    lv_style_set_line_width(&slider_line1, LV_STATE_DEFAULT, 6);
+    lv_style_set_bg_color(&slider_line1, LV_STATE_DEFAULT, LV_COLOR_MAKE(0xFF, 0x25, 0x4e));
+    lv_style_set_bg_opa(&slider_line1,LV_STATE_DEFAULT, LV_OPA_COVER);
 
-  lv_style_init(&slider_line_cc);
-  lv_style_set_line_width(&slider_line_cc, LV_STATE_DEFAULT, 6);
-  lv_style_set_line_color(&slider_line_cc, LV_STATE_DEFAULT, LV_COLOR_MAKE(0x52, 0xd1, 0xdc));
-  lv_style_set_bg_opa(&slider_line_cc,LV_STATE_DEFAULT, LV_OPA_COVER);
+    lv_style_init(&slider_line_cc);
+    lv_style_set_line_width(&slider_line_cc, LV_STATE_DEFAULT, 6);
+    lv_style_set_bg_color(&slider_line_cc, LV_STATE_DEFAULT, LV_COLOR_MAKE(0x52, 0xd1, 0xdc));
+    lv_style_set_bg_opa(&slider_line_cc,LV_STATE_DEFAULT, LV_OPA_COVER);
 
-  lv_style_init(&slider_line_vel);
-  lv_style_set_line_width(&slider_line_vel, LV_STATE_DEFAULT, 6);
-  lv_style_set_line_color(&slider_line_vel, LV_STATE_DEFAULT, LV_COLOR_MAKE(0x3A, 0x7D, 0x44));
-  lv_style_set_bg_opa(&slider_line_vel,LV_STATE_DEFAULT, LV_OPA_COVER);
+    lv_style_init(&slider_line_vel);
+    lv_style_set_line_width(&slider_line_vel, LV_STATE_DEFAULT, 6);
+    lv_style_set_bg_color(&slider_line_vel, LV_STATE_DEFAULT, LV_COLOR_MAKE(0x3A, 0x7D, 0x44));
+    lv_style_set_bg_opa(&slider_line_vel,LV_STATE_DEFAULT, LV_OPA_COVER);
 
+    lv_style_init(&textBoxStyle);
+    lv_style_set_pad_all(&textBoxStyle, LV_STATE_DEFAULT, 10);
+    lv_style_set_text_color(&textBoxStyle, LV_STATE_DEFAULT, LV_COLOR_MAKE(0x40, 0x3D, 0x58));
+    lv_style_set_text_letter_space(&textBoxStyle, LV_STATE_DEFAULT, 5);
+    lv_style_set_text_line_space(&textBoxStyle, LV_STATE_DEFAULT, 20);
+    lv_style_set_text_font(&textBoxStyle, LV_STATE_DEFAULT, &novamono_44);
+
+    lv_style_init(&rollerStyle);
+    lv_style_set_pad_all(&rollerStyle, LV_STATE_DEFAULT, 10);
+    lv_style_set_text_color(&rollerStyle, LV_STATE_DEFAULT, LV_COLOR_MAKE(0x00, 0x00, 0x00));
+    lv_style_set_text_letter_space(&rollerStyle, LV_STATE_DEFAULT, 5);
+    lv_style_set_text_line_space(&rollerStyle, LV_STATE_DEFAULT, 20);
+    lv_style_set_text_font(&rollerStyle, LV_STATE_DEFAULT, &novamono_44);
+    lv_style_set_bg_color(&rollerStyle, LV_STATE_DEFAULT, LV_COLOR_BLACK);
+    lv_style_set_bg_opa(&rollerStyle, LV_STATE_DEFAULT, LV_OPA_TRANSP);
+    lv_style_set_outline_width(&rollerStyle, LV_STATE_DEFAULT, 0);
+
+    lv_style_init(&textBoxStyle2);
+    lv_style_set_pad_all(&textBoxStyle2, LV_STATE_DEFAULT, 10);
+    lv_style_set_text_color(&textBoxStyle2, LV_STATE_DEFAULT, LV_COLOR_MAKE(0x40, 0x3D, 0x58));
+    lv_style_set_text_letter_space(&textBoxStyle2, LV_STATE_DEFAULT, 5);
+    lv_style_set_text_line_space(&textBoxStyle2, LV_STATE_DEFAULT, 20);
+    lv_style_set_text_font(&textBoxStyle2, LV_STATE_DEFAULT, &novamono_60);
+    lv_style_set_border_color(&textBoxStyle2, LV_STATE_DEFAULT, LV_COLOR_BLACK);
+
+    lv_style_init(&arcTextStyle);
+    lv_style_set_pad_all(&arcTextStyle, LV_STATE_DEFAULT, 0);
+    lv_style_set_text_color(&arcTextStyle, LV_STATE_DEFAULT, LV_COLOR_MAKE(0x40, 0x3D, 0x58));
+    lv_style_set_text_letter_space(&arcTextStyle, LV_STATE_DEFAULT, 5);
+    lv_style_set_text_line_space(&arcTextStyle, LV_STATE_DEFAULT, 20);
+    lv_style_set_text_font(&arcTextStyle, LV_STATE_DEFAULT, &novamono_26);
+
+    lv_style_init(&bgBoxStyle);
+    lv_style_set_bg_opa(&bgBoxStyle, LV_STATE_DEFAULT, LV_OPA_COVER); 
+    lv_style_set_bg_color(&bgBoxStyle, LV_STATE_DEFAULT, lv_color_hex(0xFFFFFF));
+    lv_style_set_radius(&bgBoxStyle, LV_STATE_DEFAULT, 3);
+    lv_style_set_outline_width(&bgBoxStyle, LV_STATE_DEFAULT, 2);
+    lv_style_set_outline_color(&bgBoxStyle, LV_STATE_DEFAULT, LV_COLOR_RED);
+    lv_style_set_outline_pad(&bgBoxStyle, LV_STATE_DEFAULT, 0);
+
+    lv_style_init(&listBtnStyle);
+    lv_style_set_bg_opa(&listBtnStyle, LV_STATE_DEFAULT, LV_OPA_COVER); 
+    lv_style_set_bg_color(&listBtnStyle, LV_STATE_DEFAULT, lv_color_hex(0xFFFFFF));
+    lv_style_set_outline_color(&listBtnStyle, LV_STATE_DEFAULT, LV_COLOR_RED);
+    lv_style_set_outline_color(&listBtnStyle, LV_BTN_STATE_CHECKED_PRESSED, LV_COLOR_RED);
+    lv_style_set_outline_color(&listBtnStyle, LV_BTN_STATE_PRESSED, LV_COLOR_RED);
+    lv_style_set_text_font(&listBtnStyle, LV_STATE_DEFAULT, &novamono_26);
+    lv_style_set_text_letter_space(&listBtnStyle, LV_STATE_DEFAULT, 5);
+    lv_style_set_bg_color(&listBtnStyle, LV_BTN_STATE_CHECKED_PRESSED, LV_COLOR_MAKE(0x6a, 0x25, 0x25));
+
+    lv_style_init(&listBtnStyle2);
+    lv_style_set_bg_opa(&listBtnStyle2, LV_STATE_DEFAULT, LV_OPA_COVER); 
+    lv_style_set_bg_color(&listBtnStyle2, LV_STATE_DEFAULT, lv_color_hex(0xFFFFFF));
+    lv_style_set_outline_color(&listBtnStyle2, LV_STATE_DEFAULT, LV_COLOR_RED);
+    lv_style_set_text_font(&listBtnStyle2, LV_STATE_DEFAULT, &novamono_26);
+    lv_style_set_text_letter_space(&listBtnStyle2, LV_STATE_DEFAULT, 5);
+
+  /****************
+   * Style 2
+   ***************/
 /*
-  lv_style_init(&slider_line1);
-  lv_style_set_line_width(&slider_line1, LV_STATE_DEFAULT, 6);
-  lv_style_set_line_color(&slider_line1, LV_STATE_DEFAULT, LV_COLOR_RED);
-  lv_style_set_bg_opa(&slider_line1,LV_STATE_DEFAULT, LV_OPA_COVER);
-  lv_style_set_bg_color(&slider_line1,LV_STATE_DEFAULT, LV_COLOR_RED);
-  lv_style_set_text_color(&slider_line1,LV_STATE_DEFAULT, LV_COLOR_RED);
-  lv_style_set_border_color(&slider_line1,LV_STATE_DEFAULT, LV_COLOR_RED);
+    lv_style_init(&bgStyle1);
+    lv_style_set_bg_color(&bgStyle1, LV_STATE_DEFAULT, LV_COLOR_MAKE(0xEA, 0xEF, 0xF2));
+
+    lv_style_init(&style_box_1);
+    lv_style_set_value_align(&style_box_1, LV_STATE_DEFAULT, LV_ALIGN_OUT_BOTTOM_LEFT);
+    lv_style_set_value_ofs_y(&style_box_1, LV_STATE_DEFAULT, - LV_DPX(10));
+    lv_style_set_margin_top(&style_box_1, LV_STATE_DEFAULT, LV_DPX(30));
+
+    lv_style_init(&arc_line_1);
+    lv_style_set_line_width(&arc_line_1, LV_STATE_DEFAULT, 4);
+    lv_style_set_line_color(&arc_line_1, LV_STATE_DEFAULT, LV_COLOR_BLACK);
+    lv_style_set_bg_opa(&arc_line_1,LV_STATE_DEFAULT, LV_OPA_TRANSP);
+    lv_style_set_bg_color(&arc_line_1,LV_STATE_DEFAULT, LV_COLOR_BLACK);
+    lv_style_set_text_color(&arc_line_1,LV_STATE_DEFAULT, LV_COLOR_BLACK);
+    //lv_style_set_border_color(&arc_line,LV_STATE_DEFAULT, LV_COLOR_BLACK);
+    lv_style_set_border_width(&arc_line_1, LV_STATE_DEFAULT, 0);
+
+    lv_style_init(&arc_line_indic_1);
+    lv_style_set_line_width(&arc_line_indic_1, LV_STATE_DEFAULT, 4);
+    lv_style_set_line_color(&arc_line_indic_1, LV_STATE_DEFAULT, LV_COLOR_MAKE(0xFF, 0x25, 0x4e));
+    lv_style_set_bg_opa(&arc_line_indic_1, LV_STATE_DEFAULT, LV_OPA_COVER);
+
+    lv_style_init(&arc_line_indic_cc_1);
+    lv_style_set_line_width(&arc_line_indic_cc_1, LV_STATE_DEFAULT, 4);
+    lv_style_set_line_color(&arc_line_indic_cc_1, LV_STATE_DEFAULT, LV_COLOR_MAKE(0x52, 0xd1, 0xdc));
+    lv_style_set_bg_opa(&arc_line_indic_cc_1, LV_STATE_DEFAULT, LV_OPA_COVER);
+
+    lv_style_init(&arc_bg_1);
+    lv_style_set_bg_opa(&arc_bg_1, LV_STATE_DEFAULT, LV_OPA_TRANSP);
+    lv_style_set_border_width(&arc_bg_1, LV_STATE_DEFAULT, 0);
+    lv_style_set_line_width(&arc_bg_1, LV_STATE_DEFAULT, 4);
+
+    lv_style_init(&slider_line_1);
+    lv_style_set_line_width(&slider_line_1, LV_STATE_DEFAULT, 6);
+    lv_style_set_line_color(&slider_line_1, LV_STATE_DEFAULT, LV_COLOR_BLACK);
+    lv_style_set_bg_opa(&slider_line_1,LV_STATE_DEFAULT, LV_OPA_COVER);
+    lv_style_set_bg_color(&slider_line_1,LV_STATE_DEFAULT, LV_COLOR_BLACK);
+    lv_style_set_text_color(&slider_line_1,LV_STATE_DEFAULT, LV_COLOR_BLACK);
+    lv_style_set_border_color(&slider_line_1,LV_STATE_DEFAULT, LV_COLOR_BLACK);
+
+    lv_style_init(&slider_line1_1);
+    lv_style_set_line_width(&slider_line1_1, LV_STATE_DEFAULT, 6);
+    lv_style_set_bg_color(&slider_line1_1, LV_STATE_DEFAULT, LV_COLOR_MAKE(0xFF, 0x25, 0x4e));
+    lv_style_set_bg_opa(&slider_line1_1,LV_STATE_DEFAULT, LV_OPA_COVER);
+
+    lv_style_init(&slider_line_cc_1);
+    lv_style_set_line_width(&slider_line_cc_1, LV_STATE_DEFAULT, 6);
+    lv_style_set_bg_color(&slider_line_cc_1, LV_STATE_DEFAULT, LV_COLOR_MAKE(0x52, 0xd1, 0xdc));
+    lv_style_set_bg_opa(&slider_line_cc_1,LV_STATE_DEFAULT, LV_OPA_COVER);
+
+    lv_style_init(&slider_line_vel_1);
+    lv_style_set_line_width(&slider_line_vel_1, LV_STATE_DEFAULT, 6);
+    lv_style_set_bg_color(&slider_line_vel_1, LV_STATE_DEFAULT, LV_COLOR_MAKE(0x3A, 0x7D, 0x44));
+    lv_style_set_bg_opa(&slider_line_vel_1,LV_STATE_DEFAULT, LV_OPA_COVER);
+
+    lv_style_init(&textBoxStyle_1);
+    lv_style_set_pad_all(&textBoxStyle_1, LV_STATE_DEFAULT, 10);
+    lv_style_set_text_color(&textBoxStyle_1, LV_STATE_DEFAULT, LV_COLOR_MAKE(0x40, 0x3D, 0x58));
+    lv_style_set_text_letter_space(&textBoxStyle_1, LV_STATE_DEFAULT, 5);
+    lv_style_set_text_line_space(&textBoxStyle_1, LV_STATE_DEFAULT, 20);
+    lv_style_set_text_font(&textBoxStyle_1, LV_STATE_DEFAULT, &novamono_44);
+
+    lv_style_init(&rollerStyle_1);
+    lv_style_set_pad_all(&rollerStyle_1, LV_STATE_DEFAULT, 10);
+    lv_style_set_text_color(&rollerStyle_1, LV_STATE_DEFAULT, LV_COLOR_MAKE(0x00, 0x00, 0x00));
+    lv_style_set_text_letter_space(&rollerStyle_1, LV_STATE_DEFAULT, 5);
+    lv_style_set_text_line_space(&rollerStyle_1, LV_STATE_DEFAULT, 20);
+    lv_style_set_text_font(&rollerStyle_1, LV_STATE_DEFAULT, &novamono_44);
+    lv_style_set_bg_color(&rollerStyle_1, LV_STATE_DEFAULT, LV_COLOR_BLACK);
+    lv_style_set_bg_opa(&rollerStyle_1, LV_STATE_DEFAULT, LV_OPA_TRANSP);
+    lv_style_set_outline_width(&rollerStyle_1, LV_STATE_DEFAULT, 0);
+
+    lv_style_init(&textBoxStyle2_1);
+    lv_style_set_pad_all(&textBoxStyle2_1, LV_STATE_DEFAULT, 10);
+    lv_style_set_text_color(&textBoxStyle2_1, LV_STATE_DEFAULT, LV_COLOR_MAKE(0x40, 0x3D, 0x58));
+    lv_style_set_text_letter_space(&textBoxStyle2_1, LV_STATE_DEFAULT, 5);
+    lv_style_set_text_line_space(&textBoxStyle2_1, LV_STATE_DEFAULT, 20);
+    lv_style_set_text_font(&textBoxStyle2_1, LV_STATE_DEFAULT, &novamono_60);
+    lv_style_set_border_color(&textBoxStyle2_1, LV_STATE_DEFAULT, LV_COLOR_BLACK);
+
+    lv_style_init(&arcTextStyle_1);
+    lv_style_set_pad_all(&arcTextStyle_1, LV_STATE_DEFAULT, 0);
+    lv_style_set_text_color(&arcTextStyle_1, LV_STATE_DEFAULT, LV_COLOR_MAKE(0x40, 0x3D, 0x58));
+    lv_style_set_text_letter_space(&arcTextStyle_1, LV_STATE_DEFAULT, 5);
+    lv_style_set_text_line_space(&arcTextStyle_1, LV_STATE_DEFAULT, 20);
+    lv_style_set_text_font(&arcTextStyle_1, LV_STATE_DEFAULT, &novamono_26);
+
+    lv_style_init(&bgBoxStyle_1);
+    lv_style_set_bg_opa(&bgBoxStyle_1, LV_STATE_DEFAULT, LV_OPA_COVER); 
+    lv_style_set_bg_color(&bgBoxStyle_1, LV_STATE_DEFAULT, LV_COLOR_MAKE(0xFF, 0x25, 0x4e));
+    lv_style_set_radius(&bgBoxStyle_1, LV_STATE_DEFAULT, 3);
+    lv_style_set_outline_width(&bgBoxStyle_1, LV_STATE_DEFAULT, 2);
+    lv_style_set_outline_color(&bgBoxStyle_1, LV_STATE_DEFAULT, LV_COLOR_RED);
+    lv_style_set_outline_pad(&bgBoxStyle_1, LV_STATE_DEFAULT, 0);
+
+    lv_style_init(&listBtnStyle_1);
+    lv_style_set_bg_opa(&listBtnStyle_1, LV_STATE_DEFAULT, LV_OPA_COVER); 
+    lv_style_set_bg_color(&listBtnStyle_1, LV_STATE_DEFAULT, LV_COLOR_MAKE(0xFF, 0x25, 0x4e));
+    lv_style_set_outline_color(&listBtnStyle_1, LV_STATE_DEFAULT, LV_COLOR_RED);
+    lv_style_set_text_font(&listBtnStyle_1, LV_STATE_DEFAULT, &novamono_26);
+    lv_style_set_text_letter_space(&listBtnStyle_1, LV_STATE_DEFAULT, 5);
+    lv_style_set_bg_color(&listBtnStyle_1, LV_BTN_STATE_CHECKED_PRESSED, LV_COLOR_MAKE(0x6a, 0x25, 0x25));
+
+    lv_style_init(&listBtnStyle2_1);
+    lv_style_set_bg_opa(&listBtnStyle2_1, LV_STATE_DEFAULT, LV_OPA_COVER); 
+    lv_style_set_bg_color(&listBtnStyle2_1, LV_STATE_DEFAULT, LV_COLOR_MAKE(0xFF, 0x25, 0x4e));
+    lv_style_set_outline_color(&listBtnStyle2_1, LV_STATE_DEFAULT, LV_COLOR_RED);
+    lv_style_set_text_font(&listBtnStyle2_1, LV_STATE_DEFAULT, &novamono_26);
+    lv_style_set_text_letter_space(&listBtnStyle2_1, LV_STATE_DEFAULT, 5);
+
 */
-  lv_style_init(&textBoxStyle);
-  lv_style_set_pad_all(&textBoxStyle, LV_STATE_DEFAULT, 10);
-  lv_style_set_text_color(&textBoxStyle, LV_STATE_DEFAULT, LV_COLOR_MAKE(0x40, 0x3D, 0x58));
-  lv_style_set_text_letter_space(&textBoxStyle, LV_STATE_DEFAULT, 5);
-  lv_style_set_text_line_space(&textBoxStyle, LV_STATE_DEFAULT, 20);
-  lv_style_set_text_font(&textBoxStyle, LV_STATE_DEFAULT, &novamono_44);
-
-  lv_style_init(&rollerStyle);
-  lv_style_set_pad_all(&rollerStyle, LV_STATE_DEFAULT, 10);
-  lv_style_set_text_color(&rollerStyle, LV_STATE_DEFAULT, LV_COLOR_MAKE(0x00, 0x00, 0x00));
-  lv_style_set_text_letter_space(&rollerStyle, LV_STATE_DEFAULT, 5);
-  lv_style_set_text_line_space(&rollerStyle, LV_STATE_DEFAULT, 20);
-  lv_style_set_text_font(&rollerStyle, LV_STATE_DEFAULT, &novamono_44);
-  lv_style_set_bg_color(&rollerStyle, LV_STATE_DEFAULT, LV_COLOR_BLACK);
-  lv_style_set_bg_opa(&rollerStyle, LV_STATE_DEFAULT, LV_OPA_TRANSP);
-  lv_style_set_outline_width(&rollerStyle, LV_STATE_DEFAULT, 0);
-
-  lv_style_init(&textBoxStyle2);
-  lv_style_set_pad_all(&textBoxStyle2, LV_STATE_DEFAULT, 10);
-  lv_style_set_text_color(&textBoxStyle2, LV_STATE_DEFAULT, LV_COLOR_MAKE(0x40, 0x3D, 0x58));
-  lv_style_set_text_letter_space(&textBoxStyle2, LV_STATE_DEFAULT, 5);
-  lv_style_set_text_line_space(&textBoxStyle2, LV_STATE_DEFAULT, 20);
-  lv_style_set_text_font(&textBoxStyle2, LV_STATE_DEFAULT, &novamono_60);
-  lv_style_set_border_color(&textBoxStyle2, LV_STATE_DEFAULT, LV_COLOR_BLACK);
-
-  lv_style_init(&arcTextStyle);
-  lv_style_set_pad_all(&arcTextStyle, LV_STATE_DEFAULT, 0);
-  lv_style_set_text_color(&arcTextStyle, LV_STATE_DEFAULT, LV_COLOR_MAKE(0x40, 0x3D, 0x58));
-  lv_style_set_text_letter_space(&arcTextStyle, LV_STATE_DEFAULT, 5);
-  lv_style_set_text_line_space(&arcTextStyle, LV_STATE_DEFAULT, 20);
-  lv_style_set_text_font(&arcTextStyle, LV_STATE_DEFAULT, &novamono_26);
-
-  lv_style_init(&bgBoxStyle);
-  lv_style_set_bg_opa(&bgBoxStyle, LV_STATE_DEFAULT, LV_OPA_COVER); 
-  lv_style_set_bg_color(&bgBoxStyle, LV_STATE_DEFAULT, LV_COLOR_MAKE(0xFF, 0xFF, 0xFF));
-  lv_style_set_radius(&bgBoxStyle, LV_STATE_DEFAULT, 3);
-  lv_style_set_outline_width(&bgBoxStyle, LV_STATE_DEFAULT, 2);
-  lv_style_set_outline_color(&bgBoxStyle, LV_STATE_DEFAULT, LV_COLOR_RED);
-  lv_style_set_outline_pad(&bgBoxStyle, LV_STATE_DEFAULT, 0);
-
-  lv_style_init(&listBtnStyle);
-  lv_style_set_bg_opa(&listBtnStyle, LV_STATE_DEFAULT, LV_OPA_COVER); 
-  lv_style_set_bg_color(&listBtnStyle, LV_STATE_DEFAULT, LV_COLOR_MAKE(0xFF, 0xFF, 0xFF));
-  //lv_style_set_radius(&bgBoxStyle, LV_STATE_DEFAULT, 3);
-  //lv_style_set_outline_width(&bgBoxStyle, LV_STATE_DEFAULT, 2);
-  lv_style_set_outline_color(&listBtnStyle, LV_STATE_DEFAULT, LV_COLOR_RED);
-  //lv_style_set_outline_pad(&bgBoxStyle, LV_STATE_DEFAULT, 0);
-  lv_style_set_text_font(&listBtnStyle, LV_STATE_DEFAULT, &novamono_26);
-  lv_style_set_text_letter_space(&listBtnStyle, LV_STATE_DEFAULT, 5);
-  lv_style_set_bg_color(&listBtnStyle, LV_BTN_STATE_CHECKED_PRESSED, LV_COLOR_MAKE(0x6a, 0x25, 0x25));
-
-  lv_style_init(&listBtnStyle2);
-  lv_style_set_bg_opa(&listBtnStyle2, LV_STATE_DEFAULT, LV_OPA_COVER); 
-  lv_style_set_bg_color(&listBtnStyle2, LV_STATE_DEFAULT, LV_COLOR_MAKE(0xFF, 0xFF, 0xFF));
-  //lv_style_set_radius(&bgBoxStyle, LV_STATE_DEFAULT, 3);
-  //lv_style_set_outline_width(&bgBoxStyle, LV_STATE_DEFAULT, 2);
-  lv_style_set_outline_color(&listBtnStyle2, LV_STATE_DEFAULT, LV_COLOR_RED);
-  //lv_style_set_outline_pad(&bgBoxStyle, LV_STATE_DEFAULT, 0);
-  lv_style_set_text_font(&listBtnStyle2, LV_STATE_DEFAULT, &novamono_26);
-  lv_style_set_text_letter_space(&listBtnStyle2, LV_STATE_DEFAULT, 5);
-  lv_style_set_bg_color(&listBtnStyle2, LV_BTN_STATE_PRESSED, LV_COLOR_MAKE(0x6a, 0x25, 0x25));
-
-
-
-
 
 
 
@@ -2188,6 +2415,7 @@ static void mode_updater(lv_task_t * t)
   }
   if (mode == 2){
     lv_snprintf(buf, sizeof(buf), "K", mode); //keyboard
+    flag2 = 1;
   }
   if (mode == 3){
     lv_snprintf(buf, sizeof(buf), "S", mode); //sequencer
@@ -2519,7 +2747,19 @@ static void slider_anim(lv_task_t * t){
     lv_obj_reset_style_list(slider1, LV_BAR_PART_INDIC);
     lv_obj_add_style(slider1, LV_BAR_PART_INDIC, &slider_line_vel);
 
-      if (vel == velCheck){
+
+      if (lv_bar_get_value(slider1) != vel){
+        lv_bar_set_value(slider1, vel, LV_ANIM_OFF);
+        velCheck = vel;
+        static char buf[64];
+        lv_snprintf(buf, sizeof(buf), "%d", vel);
+        const char * texts[] = {buf}; 
+
+        lv_label_set_text(sliderText[0], buf);
+        lv_obj_align(sliderText[0], NULL, LV_ALIGN_CENTER, 0, 35);
+      }
+      lv_bar_set_value(slider1, vel, LV_ANIM_OFF);
+      if ((vel == velCheck)){
 
         }
       else{
@@ -2532,6 +2772,7 @@ static void slider_anim(lv_task_t * t){
         lv_label_set_text(sliderText[0], buf);
         lv_obj_align(sliderText[0], NULL, LV_ALIGN_CENTER, 0, 35);
       }
+      if (sliderBool[1] == 0){
         lv_bar_set_value(slider2, slider2Val, LV_ANIM_OFF);
         slider2Check = slider2Val;
         static char buf[64];
@@ -2540,23 +2781,59 @@ static void slider_anim(lv_task_t * t){
 
         lv_label_set_text(sliderText[1], buf);
         lv_obj_align(sliderText[1], NULL, LV_ALIGN_CENTER, 0, 75);
+      }else{
+        lv_bar_set_value(slider2, slider2CC, LV_ANIM_OFF);
+        slider2CCCh = slider2CC;
+        static char buf[64];
+        lv_snprintf(buf, sizeof(buf), "%d", slider2CC);
+        const char * texts[] = {buf}; 
+
+        lv_label_set_text(sliderText[1], buf);
+        lv_obj_align(sliderText[1], NULL, LV_ALIGN_CENTER, 0, 75);
+      }
   }
 
   //Mode != 2
   else{
     printf("Mode 1");
-    //lv_obj_reset_style_list(slider1, LV_BAR_PART_INDIC);
+    lv_obj_reset_style_list(slider1, LV_BAR_PART_INDIC);
+
     if(sliderBool[0] == 0){
       lv_obj_add_style(slider1, LV_BAR_PART_INDIC, &slider_line1);
+      lv_bar_set_value(slider1, slider1Val, LV_ANIM_OFF);
+      slider1Check = slider1Val;
+      static char buf[64];
+      lv_snprintf(buf, sizeof(buf), "%d", slider1Val);
+      const char * texts[] = {buf}; 
+
+      lv_label_set_text(sliderText[0], buf);
+      lv_obj_align(sliderText[0], NULL, LV_ALIGN_CENTER, 0, 35);
 
     }
     else{
       lv_obj_add_style(slider1, LV_BAR_PART_INDIC, &slider_line_cc);
+      slider1CCCh = slider1CC;
+      static char buf[64];
+      lv_snprintf(buf, sizeof(buf), "%d", slider1CC);
+      const char * texts[] = {buf}; 
+
+      lv_label_set_text(sliderText[0], buf);
+      lv_obj_align(sliderText[0], NULL, LV_ALIGN_CENTER, 0, 35);
     }
 
     if(sliderBool[0] == 0){
       if (slider1Val == slider1Check){
+        if (flag2 == 1){
+          lv_bar_set_value(slider1, slider1Val, LV_ANIM_OFF);
+          slider1Check = slider1Val;
+          static char buf[64];
+          lv_snprintf(buf, sizeof(buf), "%d", slider1Val);
+          const char * texts[] = {buf}; 
 
+          lv_label_set_text(sliderText[0], buf);
+          lv_obj_align(sliderText[0], NULL, LV_ALIGN_CENTER, 0, 35);
+          flag2 = 0;
+        }
       } 
       else{
           lv_bar_set_value(slider1, slider1Val, LV_ANIM_OFF);
@@ -2571,7 +2848,15 @@ static void slider_anim(lv_task_t * t){
       }
     else{
       if (slider1CC == slider1CCCh){
+        lv_bar_set_value(slider1, slider1CC, LV_ANIM_OFF);
+        slider1CCCh = slider1CC;
+        static char buf[64];
+        lv_snprintf(buf, sizeof(buf), "%d", slider1CC);
+        const char * texts[] = {buf}; 
 
+        lv_label_set_text(sliderText[0], buf);
+        lv_obj_align(sliderText[0], NULL, LV_ALIGN_CENTER, 0, 35);
+        flag2 = 0;
       } 
       else{
           lv_bar_set_value(slider1, slider1CC, LV_ANIM_OFF);
@@ -2722,31 +3007,31 @@ static void visuals_create(lv_obj_t * parent)
     //Button for testing
     lv_obj_t * arc1_btn = lv_btn_create(parent, NULL);     //Add a button the current screen
     lv_obj_set_pos(arc1_btn, 20, 130);                            //Set its position
-    lv_obj_set_size(arc1_btn, 80, 50);                          //Set its size
+    lv_obj_set_size(arc1_btn, 40, 40);                          //Set its size
     lv_obj_set_event_cb(arc1_btn, arc1_btn_e); 
 
     //Button for testing CC
     lv_obj_t * arc1_btn2 = lv_btn_create(parent, NULL);     //Add a button the current screen
-    lv_obj_set_pos(arc1_btn2, 100, 130);                            //Set its position
-    lv_obj_set_size(arc1_btn2, 80, 50);                          //Set its size
+    lv_obj_set_pos(arc1_btn2, 70, 130);                            //Set its position
+    lv_obj_set_size(arc1_btn2, 40, 40);                          //Set its size
     lv_obj_set_event_cb(arc1_btn2, arc1_btn2_e);
 
     //Button for testing vel
     lv_obj_t * arc1_btn3 = lv_btn_create(parent, NULL);     //Add a button the current screen
-    lv_obj_set_pos(arc1_btn3, 180, 130);                            //Set its position
-    lv_obj_set_size(arc1_btn3, 80, 50);                          //Set its size
+    lv_obj_set_pos(arc1_btn3, 120, 130);                            //Set its position
+    lv_obj_set_size(arc1_btn3, 40, 40);                          //Set its size
     lv_obj_set_event_cb(arc1_btn3, arc1_btn3_e);
 
     //Button for changing mode
     lv_obj_t * arc1_btn4 = lv_btn_create(parent, NULL);     //Add a button the current screen
-    lv_obj_set_pos(arc1_btn4, 180, 80);                            //Set its position
-    lv_obj_set_size(arc1_btn4, 80, 50);                          //Set its size
+    lv_obj_set_pos(arc1_btn4, 170, 130);                            //Set its position
+    lv_obj_set_size(arc1_btn4, 40, 40);                          //Set its size
     lv_obj_set_event_cb(arc1_btn4, arc1_btn4_e);
 
     //Button for changing slider to CC
     lv_obj_t * arc1_btn5 = lv_btn_create(parent, NULL);     //Add a button the current screen
-    lv_obj_set_pos(arc1_btn5, 180, 30);                            //Set its position
-    lv_obj_set_size(arc1_btn5, 80, 50);                          //Set its size
+    lv_obj_set_pos(arc1_btn5, 220, 130);                            //Set its position
+    lv_obj_set_size(arc1_btn5, 40, 40);                          //Set its size
     lv_obj_set_event_cb(arc1_btn5, arc1_btn5_e);
   }
 
@@ -2817,8 +3102,6 @@ static void save_create(lv_obj_t * parent)
     lv_obj_set_event_cb(listBtnSave, savePreset_e); 
     lv_obj_set_event_cb(listBtnLoad, loadPreset_e); 
     lv_obj_set_event_cb(listBtnClear, clearPreset_e); 
-
-
 
   }
 
@@ -3088,154 +3371,22 @@ static void controls_create(lv_obj_t * parent)
 static void selectors_create(lv_obj_t * parent)
   {
     lv_page_set_scrl_layout(parent, LV_LAYOUT_OFF);
-
     lv_disp_size_t disp_size = lv_disp_get_size_category(NULL);
-    lv_coord_t grid_h = lv_page_get_height_grid(parent, 1, 1);
-    lv_coord_t grid_w;
-    if(disp_size <= LV_DISP_SIZE_SMALL) grid_w = lv_page_get_width_grid(parent, 1, 1);
-    else grid_w = lv_page_get_width_grid(parent, 2, 1);
+    
+    lv_obj_t * colorBtnDefault = lv_btn_create(parent, NULL);     //Add a button the current screen
+    lv_obj_set_pos(colorBtnDefault, 20, 20);                            //Set its position
+    lv_obj_set_size(colorBtnDefault, 80, 40);                          //Set its size
+    lv_obj_set_event_cb(colorBtnDefault, colorChangeDefault);
 
-    lv_obj_t * cal = lv_calendar_create(parent, NULL);
-    lv_obj_set_drag_parent(cal, true);
-    if(disp_size > LV_DISP_SIZE_MEDIUM) {
-        lv_obj_set_size(cal, LV_MATH_MIN(grid_h, grid_w), LV_MATH_MIN(grid_h, grid_w));
-    } else {
-        lv_obj_set_size(cal, grid_w, grid_w);
-        if(disp_size <= LV_DISP_SIZE_SMALL) {
-            lv_obj_set_style_local_text_font(cal, LV_CALENDAR_PART_BG, LV_STATE_DEFAULT, lv_theme_get_font_small());
-        }
-    }
+    lv_obj_t * colorBtn1 = lv_btn_create(parent, NULL);     //Add a button the current screen
+    lv_obj_set_pos(colorBtn1, 120, 20);                            //Set its position
+    lv_obj_set_size(colorBtn1, 80, 40);                          //Set its size
+    lv_obj_set_event_cb(colorBtn1, colorChange1);
 
-    static lv_calendar_date_t hl[] = {
-            {.year = 2020, .month = 1, .day = 5},
-            {.year = 2020, .month = 1, .day = 9},
-    };
-
-
-    lv_obj_t * btn;
-    lv_obj_t * h = lv_cont_create(parent, NULL);
-    lv_obj_set_drag_parent(h, true);
-    if(disp_size <= LV_DISP_SIZE_SMALL) {
-        lv_cont_set_fit2(h, LV_FIT_NONE, LV_FIT_TIGHT);
-        lv_obj_set_width(h, lv_page_get_width_fit(parent));
-        lv_cont_set_layout(h, LV_LAYOUT_COLUMN_MID);
-    } else if(disp_size <= LV_DISP_SIZE_MEDIUM) {
-        lv_obj_set_size(h, lv_obj_get_width(cal), lv_obj_get_height(cal));
-        lv_cont_set_layout(h, LV_LAYOUT_PRETTY_TOP);
-    } else {
-        lv_obj_set_click(h, false);
-        lv_obj_set_style_local_bg_opa(h, LV_CONT_PART_MAIN, LV_STATE_DEFAULT, LV_OPA_TRANSP);
-        lv_obj_set_style_local_border_opa(h, LV_CONT_PART_MAIN, LV_STATE_DEFAULT, LV_OPA_TRANSP);
-        lv_obj_set_style_local_pad_left(h, LV_CONT_PART_MAIN, LV_STATE_DEFAULT, 0);
-        lv_obj_set_style_local_pad_right(h, LV_CONT_PART_MAIN, LV_STATE_DEFAULT, 0);
-        lv_obj_set_style_local_pad_top(h, LV_CONT_PART_MAIN, LV_STATE_DEFAULT, 0);
-        lv_obj_set_size(h, LV_MATH_MIN(grid_h, grid_w), LV_MATH_MIN(grid_h, grid_w));
-        lv_cont_set_layout(h, LV_LAYOUT_PRETTY_TOP);
-    }
-
-
-    lv_obj_t * roller = lv_roller_create(h, NULL);
-    lv_roller_set_options(roller,
-                    "C0 - C2\n"
-                    "C1 - C3\n"
-                    "C2 - C4\n"
-                    "C3 - C5\n"
-                    "C4 - C6\n"
-                    "C5 - C7\n"
-                    "C6 - C8\n",
-                    LV_ROLLER_MODE_NORMAL);
-    lv_obj_add_style(roller, LV_CONT_PART_MAIN, &textBoxStyle);
-    lv_obj_set_style_local_value_str(roller, LV_CONT_PART_MAIN, LV_STATE_DEFAULT, "Roller");
-    lv_roller_set_auto_fit(roller, false);
-    lv_roller_set_align(roller, LV_LABEL_ALIGN_CENTER);
-    lv_roller_set_visible_row_count(roller, 1);
-    lv_obj_set_width(roller, 120); 
-    lv_roller_set_selected(roller, rollerIndex, LV_ANIM_OFF);
-
-    lv_obj_set_event_cb(roller, rollerEH);  
-    rollerIndex = lv_roller_get_selected(roller);
-
-    lv_obj_t * dd = lv_dropdown_create(h, NULL);
-    lv_obj_add_style(dd, LV_CONT_PART_MAIN, &style_box);
-    lv_obj_set_style_local_value_str(dd, LV_CONT_PART_MAIN, LV_STATE_DEFAULT, "Dropdown");
-    lv_obj_set_width(dd, lv_obj_get_width_grid(h, disp_size <= LV_DISP_SIZE_SMALL ? 1 : 2, 1));
-    lv_dropdown_set_options(dd, "Alpha\nBravo\nCharlie\nDelta\nEcho\nFoxtrot\nGolf\nHotel\nIndia\nJuliette\nKilo\nLima\nMike\nNovember\n"
-            "Oscar\nPapa\nQuebec\nRomeo\nSierra\nTango\nUniform\nVictor\nWhiskey\nXray\nYankee\nZulu");
-
-    lv_obj_t * list = lv_list_create(parent, NULL);
-    lv_list_set_scroll_propagation(list, true);
-    lv_obj_set_size(list, grid_w, grid_h);
-
-    const char * txts[] = {LV_SYMBOL_SAVE, "Save", LV_SYMBOL_CUT, "Cut", LV_SYMBOL_COPY, "Copy",
-            LV_SYMBOL_OK, "This is a substantially long text to scroll on the list", LV_SYMBOL_EDIT, "Edit", LV_SYMBOL_WIFI, "Wifi",
-            LV_SYMBOL_BLUETOOTH, "Bluetooth",  LV_SYMBOL_GPS, "GPS", LV_SYMBOL_USB, "USB",
-            LV_SYMBOL_SD_CARD, "SD card", LV_SYMBOL_CLOSE, "Close", NULL};
-
-    uint32_t i;
-    for(i = 0; txts[i] != NULL; i += 2) {
-        btn = lv_list_add_btn(list, txts[i], txts[i + 1]);
-        lv_btn_set_checkable(btn, true);
-
-        /*Make a button disabled*/
-        if(i == 4) {
-            lv_btn_set_state(btn, LV_BTN_STATE_DISABLED);
-        }
-    }
-
-    lv_calendar_set_highlighted_dates(cal, hl, 2);
-
-
-    static lv_style_t style_cell4;
-    lv_style_init(&style_cell4);
-    lv_style_set_bg_opa(&style_cell4, LV_STATE_DEFAULT, LV_OPA_50);
-    lv_style_set_bg_color(&style_cell4, LV_STATE_DEFAULT, LV_COLOR_GRAY);
-
-    lv_obj_t * page = lv_page_create(parent ,NULL);
-    lv_obj_set_size(page, grid_w, grid_h);
-    lv_coord_t table_w_max = lv_page_get_width_fit(page);
-    lv_page_set_scroll_propagation(page, true);
-
-    lv_obj_t * table1 = lv_table_create(page, NULL);
-    lv_obj_add_style(table1, LV_TABLE_PART_CELL4, &style_cell4);
-    /*Clean the background style of the table because it is placed on a page*/
-    lv_obj_clean_style_list(table1, LV_TABLE_PART_BG);
-    lv_obj_set_drag_parent(table1, true);
-    lv_obj_set_event_cb(table1, table_event_cb);
-    lv_table_set_col_cnt(table1, disp_size > LV_DISP_SIZE_SMALL ? 3 : 2);
-    if(disp_size > LV_DISP_SIZE_SMALL) {
-        lv_table_set_col_width(table1, 0, LV_MATH_MAX(30, 1 * table_w_max  / 5));
-        lv_table_set_col_width(table1, 1, LV_MATH_MAX(60, 2 * table_w_max / 5));
-        lv_table_set_col_width(table1, 2, LV_MATH_MAX(60, 2 * table_w_max / 5));
-    } else {
-        lv_table_set_col_width(table1, 0, LV_MATH_MAX(30, 1 * table_w_max  / 4 - 1));
-        lv_table_set_col_width(table1, 1, LV_MATH_MAX(60, 3 * table_w_max / 4 - 1));
-    }
-
-    lv_table_set_cell_value(table1, 0, 0, "#");
-    lv_table_set_cell_value(table1, 1, 0, "1");
-    lv_table_set_cell_value(table1, 2, 0, "2");
-    lv_table_set_cell_value(table1, 3, 0, "3");
-    lv_table_set_cell_value(table1, 4, 0, "4");
-    lv_table_set_cell_value(table1, 5, 0, "5");
-    lv_table_set_cell_value(table1, 6, 0, "6");
-
-    lv_table_set_cell_value(table1, 0, 1, "NAME");
-    lv_table_set_cell_value(table1, 1, 1, "Mark");
-    lv_table_set_cell_value(table1, 2, 1, "Jacob");
-    lv_table_set_cell_value(table1, 3, 1, "John");
-    lv_table_set_cell_value(table1, 4, 1, "Emily");
-    lv_table_set_cell_value(table1, 5, 1, "Ivan");
-    lv_table_set_cell_value(table1, 6, 1, "George");
-
-    if(disp_size > LV_DISP_SIZE_SMALL) {
-        lv_table_set_cell_value(table1, 0, 2, "CITY");
-        lv_table_set_cell_value(table1, 1, 2, "Moscow");
-        lv_table_set_cell_value(table1, 2, 2, "New York");
-        lv_table_set_cell_value(table1, 3, 2, "Oslo");
-        lv_table_set_cell_value(table1, 4, 2, "London");
-        lv_table_set_cell_value(table1, 5, 2, "Texas");
-        lv_table_set_cell_value(table1, 6, 2, "Athen");
-    }
+    lv_obj_t * colorBtn2 = lv_btn_create(parent, NULL);     //Add a button the current screen
+    lv_obj_set_pos(colorBtn2, 120, 20);                            //Set its position
+    lv_obj_set_size(colorBtn2, 80, 40);                          //Set its size
+    lv_obj_set_event_cb(colorBtn2, colorChange2);
   }
 
 //Events
