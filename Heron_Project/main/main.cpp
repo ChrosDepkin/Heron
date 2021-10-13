@@ -72,8 +72,11 @@ uint8_t trackLen = 15;
 uint8_t octave = 0; // Current octave
 uint8_t arcValues[8] = {0};
 uint8_t arcCCVal[8] = {0};
+uint8_t sliderCC[2] = {0};
+uint8_t sliderVal[2] = {0};
 extern uint8_t arcBool[8];
 uint8_t keyboardVel = 64;
+extern uint8_t sliderBool[2];
 
 // Things that don't go anywhere yet
 MCP MCP_M(EXP_ADR_M, MCP_DEF_CONFIG, DIR_PA_M, DIR_PB_M, PU_PA_M, PU_PB_M);     // Misc. IO expander
@@ -193,7 +196,8 @@ void ADC_Task(void *pvParameter)
         sliderL = ((~sliderL)&0x1FF)/4;
         sliderR = ((~sliderR)&0x1FF)/4;
         
-        Q7buff = sliderL | (sliderR << 8) | (joyX << 16) | (joyY << 24);
+        if(sliderBool[0] == 0){Q7buff = sliderL | (sliderR << 8) | (joyX << 16) | (joyY << 24) | (1 << 31);}
+        else if(sliderBool[0] == 1){Q7buff = sliderL | (sliderR << 8) | (joyX << 16) | (joyY << 24) | (1 << 30);}
         xQueueSend(Q7,&Q7buff,10);
         vTaskDelay(xDelay);
     }
@@ -408,7 +412,7 @@ void Key_Task(void *pvParameter)
     uint8_t modeChange = 0;
     uint8_t check = 1;
 
-    TickType_t xDelay = 75 / portTICK_PERIOD_MS; // 100ms delay (will dial this in)
+    TickType_t xDelay = 125 / portTICK_PERIOD_MS; // 100ms delay (will dial this in)
 
     // Set up the notes with MIDI note values starting at C1
     int count = 0;
@@ -840,6 +844,9 @@ void varControl(void *pvParameter)
         arcValues[6] = banks[bank][2].val;
         arcValues[7] = banks[bank][0].val;
 
+        sliderVal[0] = banks[bank][8].val;
+        sliderVal[1] = banks[bank][9].val;
+
         arcCCVal[0] = banks[bank][7].CC;
         arcCCVal[1] = banks[bank][5].CC;
         arcCCVal[2] = banks[bank][3].CC;
@@ -848,6 +855,9 @@ void varControl(void *pvParameter)
         arcCCVal[5] = banks[bank][4].CC;
         arcCCVal[6] = banks[bank][2].CC;
         arcCCVal[7] = banks[bank][0].CC;
+
+        sliderCC[0] = banks[bank][8].CC;
+        sliderCC[1] = banks[bank][9].CC;
         
 
         xQueueReceive(Q1,(void *) &Q1buff,10); // Get the data from queue
@@ -1013,37 +1023,52 @@ void varControl(void *pvParameter)
         }
         if(Q7buff != 0x0F000000)
             {
-                if(banks[bank][8].val != (Q7buff & 0xFF))
+                if(Q7buff & 0x80000000)
                 {
-                    banks[bank][8].val = Q7buff & 0xFF; 
-                    Q3buff = 0;
-                    Q3buff = CTRLCHANGE | (banks[bank][8].CC << 8) | (banks[bank][8].val << 16);
-                    xQueueSend(Q3,&Q3buff,10);
-                    vTaskResume(MIDI);
+                    if(banks[bank][8].val != (Q7buff & 0xFF))
+                    {
+                        banks[bank][8].val = Q7buff & 0xFF; 
+                        Q3buff = 0;
+                        Q3buff = CTRLCHANGE | (banks[bank][8].CC << 8) | (banks[bank][8].val << 16);
+                        xQueueSend(Q3,&Q3buff,10);
+                        vTaskResume(MIDI);
+                    }
+                    if(banks[bank][9].val != ((Q7buff >> 8) & 0xFF))
+                    {
+                        banks[bank][9].val = (Q7buff >> 8) & 0xFF;
+                        Q3buff = 0;
+                        Q3buff = CTRLCHANGE | (banks[bank][9].CC << 8) | (banks[bank][9].val << 16);
+                        xQueueSend(Q3,&Q3buff,10);
+                        vTaskResume(MIDI);
+                    }
+                    if(banks[bank][10].val != ((Q7buff >> 16) & 0xFF))
+                    {
+                        banks[bank][10].val = (Q7buff >> 16) & 0xFF;
+                        Q3buff = 0;
+                        Q3buff = CTRLCHANGE | (banks[bank][10].CC << 8) | (banks[bank][10].val << 16);
+                        xQueueSend(Q3,&Q3buff,10);
+                        vTaskResume(MIDI);
+                    }
+                    if(banks[bank][11].val != ((Q7buff >> 24) & 0xFF))
+                    {
+                        banks[bank][11].val = (Q7buff >> 24) & 0xFF;
+                        Q3buff = 0;
+                        Q3buff = CTRLCHANGE | (banks[bank][11].CC << 8) | (banks[bank][11].val << 16);
+                        xQueueSend(Q3,&Q3buff,10);
+                        vTaskResume(MIDI);
+                    }
                 }
-                if(banks[bank][9].val != ((Q7buff >> 8) & 0xFF))
+
+                if(Q7buff & 0x40000000)
                 {
-                    banks[bank][9].val = (Q7buff >> 8) & 0xFF;
-                    Q3buff = 0;
-                    Q3buff = CTRLCHANGE | (banks[bank][9].CC << 8) | (banks[bank][9].val << 16);
-                    xQueueSend(Q3,&Q3buff,10);
-                    vTaskResume(MIDI);
-                }
-                if(banks[bank][10].val != ((Q7buff >> 16) & 0xFF))
-                {
-                    banks[bank][10].val = (Q7buff >> 16) & 0xFF;
-                    Q3buff = 0;
-                    Q3buff = CTRLCHANGE | (banks[bank][10].CC << 8) | (banks[bank][10].val << 16);
-                    xQueueSend(Q3,&Q3buff,10);
-                    vTaskResume(MIDI);
-                }
-                if(banks[bank][11].val != ((Q7buff >> 24) & 0xFF))
-                {
-                    banks[bank][11].val = (Q7buff >> 24) & 0xFF;
-                    Q3buff = 0;
-                    Q3buff = CTRLCHANGE | (banks[bank][11].CC << 8) | (banks[bank][11].val << 16);
-                    xQueueSend(Q3,&Q3buff,10);
-                    vTaskResume(MIDI);
+                    if(banks[bank][8].CC != (Q7buff & 0xFF))
+                    {
+                        banks[bank][8].CC = Q7buff & 0xFF; 
+                    }
+                    if(banks[bank][9].CC != ((Q7buff >> 8) & 0xFF))
+                    {
+                        banks[bank][9].CC = (Q7buff >> 8) & 0xFF;
+                    }
                 }
                 Q7buff = 0x0F000000;
             }
