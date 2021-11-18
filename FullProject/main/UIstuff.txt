@@ -1,8 +1,0 @@
--Need to use the screen to change CC values. Either have the value pop up as you're turning the encoder to change it,
- or have a menu on the screen like the calender menu in the demo maybe, to select a CC (fixed range of possible values
- so a selection box may work, but maybe too many).
--Current bank, sequencer track, BPM, mode.
--MIDI note for current track.
-    -Maybe just have a separate tab for sequencer stuff? Current track, note, what else?
--Current octave for keyboard
-

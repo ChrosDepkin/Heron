@@ -581,7 +581,7 @@ class WS2813Controller : public ClocklessController<DATA_PIN, C_NS(320), C_NS(32
 template <uint8_t DATA_PIN, EOrder RGB_ORDER = RGB>
 class WS2812Controller800Khz : public ClocklessController<DATA_PIN, C_NS(250), C_NS(625), C_NS(375), RGB_ORDER> {};
 
-// WS2812C - 250ns, 625ns, 375ns		- Done by me
+// WS2812C - 300ns, 320ns, 470ns		- Done by me
 template <uint8_t DATA_PIN, EOrder RGB_ORDER = RGB>
 class WS2812C : public ClocklessController<DATA_PIN, C_NS(300), C_NS(320), C_NS(470), RGB_ORDER> {};
 

@@ -6,8 +6,6 @@ void MIDI_send(uint8_t type, uint8_t channel, uint8_t val1, uint8_t val2)
 {
     char b1 = type | channel;
     char data[3] = {b1, val1, val2};
-    TickType_t xDelay = 200 / portTICK_PERIOD_MS;
-    TimeOut_t xTimeOut;
 
    
     

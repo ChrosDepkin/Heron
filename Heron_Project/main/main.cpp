@@ -113,8 +113,7 @@ void app_main(void)
     Q6 = xQueueCreate(8, sizeof(uint8_t));
     Q7 = xQueueCreate(8, sizeof(uint32_t));
     
-    esp_wifi_stop();
-    esp_wifi_deinit();
+
 
     // Create each task for the OS
     xTaskCreate(I2C_Config, "I2Cconfig", 2048, NULL, 8, &I2Cconfig);
@@ -795,22 +794,22 @@ void varControl(void *pvParameter)
     tracks[3][1].d2 = 64; // Velocity 64
     tracks[3][1].tB = 3;
 
-    banks[0][8].CC = 124;
-    banks[0][9].CC = 125;
-    banks[0][10].CC = 126;
-    banks[0][11].CC = 127;
-    banks[1][8].CC = 124;
-    banks[1][9].CC = 125;
-    banks[1][10].CC = 126;
-    banks[1][11].CC = 127;
-    banks[2][8].CC = 124;
-    banks[2][9].CC = 125;
-    banks[2][10].CC = 126;
-    banks[2][11].CC = 127;
-    banks[3][8].CC = 124;
-    banks[3][9].CC = 125;
-    banks[3][10].CC = 126;
-    banks[3][11].CC = 127;
+    banks[0][8].CC = 123;
+    banks[0][9].CC = 124;
+    banks[0][10].CC = 125;
+    banks[0][11].CC = 126;
+    banks[1][8].CC = 123;
+    banks[1][9].CC = 124;
+    banks[1][10].CC = 125;
+    banks[1][11].CC = 126;
+    banks[2][8].CC = 123;
+    banks[2][9].CC = 124;
+    banks[2][10].CC = 125;
+    banks[2][11].CC = 126;
+    banks[3][8].CC = 123;
+    banks[3][9].CC = 124;
+    banks[3][10].CC = 125;
+    banks[3][11].CC = 126;
 
     nvs_flash_init();
     nvs_handle storage_handle;
