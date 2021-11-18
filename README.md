@@ -8,7 +8,7 @@ The key features of the Heron are:
 - A 16-track sequencer, with two rows of physical keys controlling up to eight virtually banked tracks.
 - A two octave keyboard, for directly playing notes.
 
-Heron code was written in C/C++, using the ESP32 port of FreeRTOS within the ESP-IDF framework. Development of the project is documented in the final report included in this directory.
+Heron code was written in C/C++, using the ESP32 port of FreeRTOS within the ESP-IDF framework. Development of the project is documented in the final report included in this directory. The 'Heron_Project' directory contains the final code, while other directories contain more limited tests.
 
 Final Heron Board:
 ![Final Board](/Heron.jpg)
