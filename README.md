@@ -14,4 +14,4 @@ Final Heron Board:
 ![Final Board](/Heron.jpg)
 
 Final PCB Layout:
-![Final Design](/layout.png)
+![Final Design](/Layout.png)
